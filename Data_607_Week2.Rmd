@@ -1,0 +1,62 @@
+---
+title: "Data_607_Week2"
+author: "Dan Wigodsky"
+date: "February 11, 2018"
+output: html_document
+
+---
+## <span style="color:rgb(22, 143, 125)">R and SQL: together again</span>
+### <span style="color:rgb(22, 143, 125)">The people of Frasier are at it again.  They've watched all kinds of remakes and sequels in 2017.  Now they're here to report their ratings (Sorry, no long review.  It's only numerical.)  
+### <span style="color:rgb(22, 143, 125)">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;The package RMySQL appears to be deprecated and was replaced by RMariaDB</span>
+### <span style="color:rgb(256, 243, 225)">========================================================================</span>
+```{r }
+library("RMariaDB")
+library(readr)
+#library(RMySQL)
+```
+
+``` {r }
+passw<-read_file("SQLpassword.txt")
+MyConnection <- dbConnect(RMariaDB::MariaDB(),user='dan2', password=passw, dbname='movies', host='localhost')
+```
+
+### <span style="color:rgb(22, 143, 125)">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;We open with a query of all of the movies watched in 2017.</span>
+
+```   {r set-options, cache=FALSE,warning=FALSE}
+options(width = 190)
+
+res <- dbSendQuery(MyConnection, "select *from movies;")
+dbFetch(res)
+```
+
+### <span style="color:rgb(22, 143, 125)">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Now, we would like to know what each person thought of the movies.</span>
+``` {r warning=FALSE}
+
+
+res2 <- dbSendQuery(MyConnection, "select
+rev.Name,
+rev.review,
+mov.short_title,
+mov.title
+from Reviewers as rev
+left join Movies as mov 
+on rev.ID = mov.ID;")
+ourdataFrame<-dbFetch(res2)
+ourdataFrame
+```
+### <span style="color:rgb(22, 143, 125)">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;What were the most liked movies?</span>
+```{r warning=FALSE}
+res3 <- dbSendQuery(MyConnection, "select
+rev.Name,
+rev.review,
+mov.short_title,
+mov.title
+from Reviewers as rev
+left join Movies as mov 
+on rev.ID = mov.ID
+where rev.review = 5;")
+dbFetch(res3)
+
+dbDisconnect(MyConnection)
+```
+
