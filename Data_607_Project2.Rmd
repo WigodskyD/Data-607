@@ -1,0 +1,358 @@
+---
+title: "Data_607_Project2_a"
+author: "Dan Wigodsky"
+date: "March 8, 2018"
+output: html_document
+---
+<body style="background-color:#e0d6b8;">
+
+<center><h1><span style="color:rgb(51, 142, 159);background-color:rgb(254, 249, 242)">Tidy Data Project</h1></center>  
+
+<left><h2><span style="color:rgb(191, 102, 109);background-color:rgb(254, 249, 242)">1) Financial Complaints to the Consumer Financial Protection Bureau : 2011-2018</h2></left>
+<left><h2><span style="color:rgb(191, 102, 109);background-color:rgb(254, 249, 242)">2) US Employment by NAICS Sector</h2></left>
+<left><h2><span style="color:rgb(191, 102, 109);background-color:rgb(254, 249, 242)">3) Pokemon</h2></left>  
+```{r warning=FALSE, message=FALSE,echo=FALSE}
+options(width = 490)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(magrittr)
+library(gridExtra)
+library(RCurl)
+```
+<left><h3><span style="color:rgb(51, 92, 159);background-color:rgb(254, 249, 242)">Our original dataset was extremely large.  We first pared down unneeded columns to make subsequent runtime quicker.  The dataset is available from catalog.data.gov/dataset/consumer-complaint-database#topic=consumer_navigation</h3></left>
+
+complaint.data<-read.csv('/Users/dawig/Documents/Consumer_Complaintsb.csv',header=TRUE)
+
+complaint.data %<>%   
+  select(Product,Company,State,Submitted.via,Company.response.to.consumer,Timely.response.,Consumer.disputed. )
+write.csv(complaint.data, file = "Consumer_Complaints_Selected.csv")
+
+```{r warning=FALSE, message=FALSE}
+complaint.data<-read.csv('/Users/dawig/Documents/Consumer_Complaints_Selected.csv',header=TRUE)
+
+complaint.data<-select(complaint.data,Product,Company,State,Submitted.via,Company.response.to.consumer,Timely.response.,Consumer.disputed. )
+
+
+complaint.data %>% arrange(Company,State) -> complaint.data.2
+head(complaint.data.2)
+```  
+<left><h3><span style="color:rgb(51, 92, 159);background-color:rgb(254, 249, 242)">Apart from tidyness, our data contains no numerical values.  We have to sum them up and recombine them into a new dataframe that contains the numerical data that we are after.  </h3></left> 
+
+<left><h3><span style="color:rgb(51, 92, 159);background-color:rgb(254, 249, 242)">While preparing our data frame, we found one company, PORTFOLIO RECOVERY ASSOCIATES INC, that never registered an untimely response, despite having 7144 complaints.  Mobiloans, LLC, however, didn't answer any of its 308 complaints on time.  Southwest Credit Systems, L.P., took second to Mobiloans with 304 slow answers. </h3></left>  
+  
+```{r warning=FALSE}
+complaint.data.2 %>%
+  group_by(Company,Timely.response.) %>% 
+       summarise(number_complaints.y = n()) %>%
+          filter(number_complaints.y>5000,Timely.response.=="Yes") %>% 
+            arrange(desc(number_complaints.y),Timely.response.)->complaint.data.yes
+complaint.data.2 %>%
+  group_by(Company,Timely.response.) %>% 
+       summarise(number_complaints.n = n()) %>%
+          filter(Timely.response.=="No") %>% 
+            arrange(desc(number_complaints.n),Timely.response.)->complaint.data.no
+complaint.data.2 %>%
+  group_by(Company) %>% 
+       summarise(number_complaints = n()) %>%
+          filter(number_complaints>5100) %>% 
+            arrange(desc(number_complaints))->complaint.data.all  
+```
+<left><h3><span style="color:rgb(51, 92, 159);background-color:rgb(254, 249, 242)">We create numeric data from individual complaints by summing them up and filtering for our top 25 complained about companies.  We put data into 3 data frames so we can compare companies based on their rate  of answering complaints on time.</h3></left>   
+
+```{r warning=FALSE}
+complaint.data.2<-left_join(complaint.data.all,complaint.data.yes[,-2])
+complaint.data.2<-left_join(complaint.data.2[],complaint.data.no[,-2])
+complaint.data.2[is.na(complaint.data.2)] <- 0
+complaint.data.2 %<>%
+  mutate(percent_slow=number_complaints.n/number_complaints) %>% 
+     mutate(slow_rank=(desc(rank(percent_slow))+26))
+```  
+
+<left><h3><span style="color:rgb(51, 152, 159);background-color:rgb(254, 249, 242)">We take a look at our data.  Our top 25 companies are placed in order.  We rank each company among other top 25 by the proportion of complaints not answered on time. </h3></left>
+
+```{r warning=FALSE, echo=FALSE}
+title.color <- element_text(face = "bold", color = '#e0e023',size=18)
+ggplot(data=complaint.data.2, aes(x=reorder(Company,number_complaints),y=number_complaints)) + geom_bar(stat='identity',fill='#86c4d8') +coord_flip()+ theme(panel.background = element_rect(fill = '#136782'))+labs(x='Company', y='Number of Complaints')+ theme(title = title.color)+ 
+    geom_text(aes(label=slow_rank), vjust=0.3,hjust=1.3,color='white')+labs(title='Institutions with the Most \n Complaints, 2011-2018',subtitle='Late Response Rank in White')+ theme(plot.title = element_text(colour='#c1c122', size=20))
+
+
+write.csv(complaint.data.2, file = "Consumer_Complaints_Test.csv")
+```   
+
+<left><h3><span style="color:rgb(51, 92, 159);background-color:rgb(254, 249, 242)">The credit reporting agencies, Bank of America and Wells Fargo stand out as the greatest complaint attractors.  It makes sense that the credit ratings agencies accumulated a lot of complaints.  When Americans need credit, the banks they use turn to these three agencies.  Wells Fargo, among the large banks, attracts attention for its number one rank for failing to respond to complaints quickly.</h3></left> 
+
+
+<left><h3><span style="color:rgb(51, 172, 159);background-color:rgb(254, 249, 242)">To prepare to look at data for Wells Fargo only, we created a separate file containing only complaints about Wells Fargo.</h3></left>
+
+```{r eval=FALSE} 
+complaint.data<-read.csv('/Users/dawig/Documents/Consumer_Complaintsb.csv',header=TRUE)
+pattern <- paste('WELLS', collapse = "|")
+complaint.data.wells<-  subset(complaint.data,grepl(pattern,Company))  
+head(complaint.data.wells)
+write.csv(complaint.data.wells, file = "Consumer_Complaints_Wells.csv")
+```   
+<left><h3><span style="color:rgb(51, 92, 159);background-color:rgb(254, 249, 242)">We want to take a look at Wells Fargo's complaints over time.  To create an order to be able to make a time series, we have to format our dates into separate numbers that conform to a length that will be accepted as a date format.</h3></left>
+
+```{r  warning=FALSE}
+complaint.data<-read.csv('/Users/dawig/Documents/Consumer_Complaints_Wells.csv',header=TRUE)
+complaint.data %>% 
+  separate(Date.received,c("Month","Day", "Year"),sep="/") %>% 
+     group_by(Year,Month,Day) %>% 
+       summarise(number_complaints.day = n()) ->Yearly.chart
+Yearly.chart<-transform(Yearly.chart, Day = as.numeric(Day))
+Yearly.chart[,3]<-sprintf("%02.0f", Yearly.chart[,3]) 
+Yearly.chart<-transform(Yearly.chart, Month = as.numeric(Month))
+Yearly.chart[,2]<-sprintf("%02.0f", Yearly.chart[,2]) 
+Yearly.chart<- unite(Yearly.chart,Date,Year,Month,Day, sep = "-",remove=FALSE)
+Yearly.chart[,1]<-as.Date(Yearly.chart[,1])
+Yearly.chart<- unite(Yearly.chart,Year_Month,Year,Month, sep = ".",remove=FALSE)
+```   
+<left><h3><span style="color:rgb(51, 92, 159);background-color:rgb(254, 249, 242)">We want to find out any reasons for the changes of complaints over time.  Google Trends will also be graphed as a proxy for public interest in Wells Fargo to see if interest is tied to complaints.  As it will turn out below, Google Trends is not a perfect measure of public interest and didn't respond directly to increased news stories when their account fraud scandal began.</h3></left>
+```{r  warning=FALSE, echo=FALSE}
+Yearly.chart %>%
+  group_by(Year_Month) %>% 
+       summarise(month_group = sum(number_complaints.day))->By.month.chart
+plot.a<-ggplot(data=By.month.chart,aes(x=Year_Month,y=month_group)) +
+  geom_point(aes(x=Year_Month,y=month_group,size=2),color='#8c2505')+labs(title='Wells Fargo Complaints by Month',x='Months from 2011 to 2018',y='Complaints')+theme(panel.background = element_rect(fill = '#d3b969')) + theme(legend.position="none",axis.ticks.x=element_blank(),axis.text.x=element_blank())+theme(plot.title=element_text(color='#8c2505'))
+
+Google.Trends<-read.csv('/Users/dawig/Documents/multiTimeline.csv',header=TRUE)
+plot.b<-ggplot(data=Google.Trends,aes(x=Google.Trends[,1],y=Google.Trends[,2])) +
+  geom_point(aes(x=Google.Trends[,1],y=Google.Trends[,2],size=2),color='#8c2505')+labs(title='Google Trend for Wells Fargo',x='Months from 2011 to 2018',y='Trend (100 is top)')+theme(panel.background = element_rect(fill = '#d3b969')) + theme(legend.position="none",axis.ticks.x=element_blank(),axis.text.x=element_blank())+theme(plot.title=element_text(color='#8c2505'))
+grid.arrange(plot.a, plot.b, nrow = 2)
+
+By.month.chart %<>%
+  filter(month_group>1000)
+plot.a<-ggplot(data=By.month.chart,aes(x=Year_Month,y=month_group)) +
+  geom_point(aes(x=Year_Month,y=month_group,size=2),color='#8c2505')+labs(title='Wells Fargo Complaints by Month-peaks',x='Months from 2011 to 2018',y='Complaints')+theme(panel.background = element_rect(fill = '#d3b969'))  + theme(legend.position="none")+theme(plot.title=element_text(color='#8c2505'))
+
+Google.Trends %<>%
+  filter(Google.Trends[,2]>93)
+plot.b<-ggplot(data=Google.Trends,aes(x=Google.Trends[,1],y=Google.Trends[,2])) +
+  geom_point(aes(x=Google.Trends[,1],y=Google.Trends[,2],size=2),color='#8c2505')+labs(title='Google Trend for Wells Fargo-peaks',x='Months from 2011 to 2018',y='Trend (100 is top)')+theme(panel.background = element_rect(fill = '#d3b969')) + theme(legend.position="none")+theme(plot.title=element_text(color='#8c2505'))
+grid.arrange(plot.a, plot.b, nrow = 2)
+
+write.csv(complaint.data, file = "Consumer_Complaints_Test.csv")
+```
+<left><h3><span style="color:rgb(51, 142, 159);background-color:rgb(254, 249, 242)">Two spikes can be found in Wells Fargo complaints.  In the first spike, Google Trends shows a spike in Dec., 2012, the month before a complaint spike.</h3></left>
+<left><h3><span style="color:rgb(51, 92, 159);background-color:rgb(254, 249, 242)">In September 2016, Wells Fargo's account manipulation scandal broke.  This led to a spike in complaints to the CFPB.  It did not cause an increased interest in Google searches.  The public did not appear to turn to Google searches for information about the scandal.</h3></left>
+<left><h4><span style="color:rgb(51, 92, 159);background-color:rgb(254, 249, 242)">(http://www.slate.com/blogs/moneybox/2016/09/08/wells_fargo_to_pay_185_million_for_account_opening_scandal_that_s_not_enough.html)</h4></left>
+
+```{r warning=FALSE, echo=FALSE}
+Google.Trends.long<-read.csv('/Users/dawig/Documents/multiTimeline_long.csv',header=TRUE)
+ggplot(data=Google.Trends.long,aes(x=Google.Trends.long[,1],y=Google.Trends.long[,2])) +
+  geom_point(aes(x=Google.Trends.long[,1],y=Google.Trends.long[,2],color='red',size=2))+labs(title='Google Trend for Wells Fargo',x='Months from 2004 to 2018',y='Trend (100 is top)')+theme(panel.background = element_rect(fill = '#f7f5ed')) + theme(legend.position="none",axis.ticks.x=element_blank(),axis.text.x=element_blank())
+```
+<left><h3><span style="color:rgb(51, 142, 159);background-color:rgb(254, 249, 242)">A longer time series of Google Trends shows that our first spike was the result of fast growth and Wells Fargo's long position as the market leader at a time when refinancing and bank foreclosures were a part of the national conversation.  Wells Fargo accounted for 1 in 4 mortgate originations at the time.  An article in Forbes tells part of this story:    </h3></left>
+
+<left><h4><span style="color:rgb(51, 142, 159);background-color:rgb(254, 249, 242)">"For two days, financial services giant Wells Fargo, America's largest residential-mortgage originator, took over 104,000 square feet for one of the 51 "Home Preservation Workshops" it has held over the past three years."</h3></left>
+https://www.forbes.com/sites/halahtouryalai/2012/01/25/wells-fargo-the-bank-that-works/#6316f00f718e
+
+<left><h3><span style="color:rgb(51, 142, 159);background-color:rgb(254, 249, 242)">CFPB only started compiling complaint data at the time of the first spike, so it would not be possible to find out how long this trend would have gone back to. Finally, a look at Wells Fargo's market capitalization brings our question into clearer focus.  Wells Fargo continued to grow quickly after 2012, but complaints subsided until 2016.  Mortgage difficulties and refinancing anxiety seem to have been the largest contributor to our first spike.</h3></left> 
+
+![](market_cap.png)   
+
+<left><h1><span style="color:rgb(96, 15, 15);background-color:rgb(254, 249, 242)">=======================================================================</h1></left>  
+<left><h1><span style="color:rgb(51, 142, 159);background-color:rgb(254, 249, 242)">Our second data set comes from the US Census Bureau.  It includes information, by Congressional District, of all workers in the US.</h1></left>  
+<left><h2><span style="color:rgb(51, 92, 159);background-color:rgb(254, 249, 242)">We include our graphs of the top and bottom states in three industries, measured by proportion of employment in the named sector.  We follow this by descriptions of our steps to tidy the data and produce the graphs.</h2></left>  
+<left><h3><span style="color:rgb(51, 142, 159);background-color:rgb(254, 249, 242)">From our graphs, we can see that Washington,D.C., Massachusetts and Rhode Island have relatively large education sectors.  Alaska, Wyoming and Nevada have relatively small education sectors.  The former places are large, early established population centers with a lot of colleges.  The latter group is more rural and was not settled in large numbers early.  Wyoming, North Dakota and Alaska have many mining and fossil fuel jobs.  Washington, D.C. has almost none. (Were they lobbyists?)  California, Washington,D.C. and Washington have large information sectors.  Nevada, Mississippi and Louisiana have relatively small information sectors.</h3></left> 
+```{r  warning=FALSE,message=FALSE,echo=FALSE}
+
+Business.size<-read.csv('/Users/dawig/Documents/cd_naicssector_2015.csv', header=FALSE)
+Business.size<-as.matrix(Business.size)
+Business.size<-Business.size[-c(1,2,3,4,6,7),]
+Business.size<-Business.size[,-c(14,15,16)]
+colnames(Business.size)<-Business.size[1,]
+Business.size<-tbl_df(Business.size[-1,])
+Business.size<-Business.size[,c(2,5,6,9)]
+colnames(Business.size)<-c('State','Description','Business_size_category','Employment')
+Business.size<-transform(Business.size, Employment = as.numeric(Employment))
+
+Business.size %<>%
+  filter(Description!='Total') %>% 
+   arrange(State,Description,Business_size_category) %>% 
+     group_by(State,Description,Business_size_category) %>% 
+        summarise(Number_of_Employees=sum(Employment))
+Business.size<-spread(Business.size,Business_size_category,Number_of_Employees)
+Business.size[is.na(Business.size)] <- 0    
+
+Business.size %>%
+  group_by(State) %>% 
+     summarise(Number_of_Employees_State=sum(`1:  Total`))-> State.total.df
+Business.size<-left_join(Business.size,State.total.df)
+
+Business.size %<>% 
+  mutate(Sector_share=`1:  Total`/Number_of_Employees_State)
+
+Business.size %>%
+  filter(Description=='Educational Services',Sector_share>.0374) %>% 
+  ggplot(aes(x=State,y=Sector_share))+geom_point(aes(x=State,y=Sector_share,size=2))+theme(axis.text.x = element_text(angle = 45, hjust = 1))+theme(panel.background = element_rect(fill = '#52b781'))  + theme(legend.position="none")+labs(title='Education Sector as a Proportion of Employment',subtitle='Top 10 and Bottom 10')+ theme(plot.title = element_text(colour='#af571c', size=20))+xlab("")+ylim(.02,.12)->plot.a
+
+Business.size %>%
+  filter(Description=='Educational Services',Sector_share<.0177) %>% 
+  ggplot(aes(x=State,y=Sector_share))+geom_point(aes(x=State,y=Sector_share,size=2))+theme(axis.text.x = element_text(angle = 45, hjust = 1))+theme(panel.background = element_rect(fill = '#52b781'))  + theme(legend.position="none")+xlab("")+ylim(.009,.018)->plot.b
+
+grid.arrange(plot.a, plot.b, nrow = 2)
+
+Business.size %>%
+  filter(Description=='Mining, Quarrying, and Oil and Gas Extraction',Sector_share>.011) %>% 
+  ggplot(aes(x=State,y=Sector_share))+geom_point(aes(x=State,y=Sector_share,size=2))+theme(axis.text.x = element_text(angle = 45, hjust = 1))+theme(panel.background = element_rect(fill = '#7fd893'))  + theme(legend.position="none")+labs(title='Mining, Quarrying, and Oil and Gas Extraction Sector as a Proportion of Employment',subtitle='Top 10 and Bottom 10')+ theme(plot.title = element_text(colour='#af571c', size=12))+xlab("")+ylim(.008,.12)->plot.a
+
+Business.size %>%
+  filter(Description=='Mining, Quarrying, and Oil and Gas Extraction',Sector_share<.0005) %>% 
+  ggplot(aes(x=State,y=Sector_share))+geom_point(aes(x=State,y=Sector_share,size=2))+theme(axis.text.x = element_text(angle = 45, hjust = 1))+theme(panel.background = element_rect(fill = '#7fd893'))  + theme(legend.position="none")+xlab("")+ylim(.000005,.0005)->plot.b
+
+grid.arrange(plot.a, plot.b, nrow = 2)
+
+Business.size %>%
+  filter(Description=='Information',Sector_share>.028) %>% 
+  ggplot(aes(x=State,y=Sector_share))+geom_point(aes(x=State,y=Sector_share,size=2))+theme(axis.text.x = element_text(angle = 45, hjust = 1))+theme(panel.background = element_rect(fill = '#52b781'))  + theme(legend.position="none")+labs(title='Information Sector as a Proportion of Employment',subtitle='Top 10 and Bottom 10')+ theme(plot.title = element_text(colour='#af571c', size=20))+xlab("")+ylim(.025,.055)->plot.a
+
+Business.size %>%
+  filter(Description=='Information',Sector_share<.0187) %>% 
+  ggplot(aes(x=State,y=Sector_share))+geom_point(aes(x=State,y=Sector_share,size=2))+theme(axis.text.x = element_text(angle = 45, hjust = 1))+theme(panel.background = element_rect(fill = '#52b781'))  + theme(legend.position="none")+xlab("")+ylim(.0142,.0188)->plot.b
+
+grid.arrange(plot.a, plot.b, nrow = 2)
+
+write.csv(Business.size, file = "/Users/dawig/Documents/cd_Naic_Test.csv")
+```  
+<left><h3><span style="color:rgb(51, 92, 159);background-color:rgb(254, 249, 242)">We load our csv file in and then clean up the header, which contains information about our data, but did not naturally begin with column names and that the data.</h3></left>
+
+```{r warning=FALSE,message=FALSE,eval=FALSE}
+Business.size<-read.csv('/Users/dawig/Documents/cd_naicssector_2015.csv', header=FALSE)
+Business.size<-as.matrix(Business.size)
+Business.size<-Business.size[-c(1,2,3,4,6,7),]
+Business.size<-Business.size[,-c(14,15,16)]
+colnames(Business.size)<-Business.size[1,]
+Business.size<-tbl_df(Business.size[-1,])
+Business.size<-Business.size[,c(2,5,6,9)]
+colnames(Business.size)<-c('State','Description','Business_size_category','Employment')
+Business.size<-transform(Business.size, Employment = as.numeric(Employment))
+```  
+<left><h3><span style="color:rgb(51, 92, 159);background-color:rgb(254, 249, 242)">We take data from separate congressional districts within each state and combine it, removing the "total" grouping to not interfere with our percentages.  We spread business size categories so as not to have a variable within the columns.</h3></left>
+
+```{r warning=FALSE,message=FALSE,eval=FALSE}
+Business.size %<>%
+  filter(Description!='Total') %>% 
+   arrange(State,Description,Business_size_category) %>% 
+     group_by(State,Description,Business_size_category) %>% 
+        summarise(Number_of_Employees=sum(Employment))
+Business.size<-spread(Business.size,Business_size_category,Number_of_Employees)
+Business.size[is.na(Business.size)] <- 0    
+```  
+<left><h3><span style="color:rgb(51, 92, 159);background-color:rgb(254, 249, 242)">To create a column to tell us the proportion of employment in an industry within a state, we create a total state employment table.  Then, we left join it to our main table and create a new column for proportion.</h3></left>
+
+``` {r warning=FALSE,message=FALSE,eval=FALSE}
+Business.size %>%
+  group_by(State) %>% 
+     summarise(Number_of_Employees_State=sum(`1:  Total`))-> State.total.df
+Business.size<-left_join(Business.size,State.total.df)
+
+Business.size %<>% 
+  mutate(Sector_share=`1:  Total`/Number_of_Employees_State)
+```  
+<left><h3><span style="color:rgb(51, 92, 159);background-color:rgb(254, 249, 242)">Finally, we create our plots by filtering for the industry of interest and the levels for the top and bottom states.</h3></left>
+
+```{r warning=FALSE,message=FALSE,eval=FALSE}
+Business.size %>%
+  filter(Description=='Educational Services',Sector_share>.0374) %>% 
+  ggplot(aes(x=State,y=Sector_share))+geom_point(aes(x=State,y=Sector_share,size=2))+theme(axis.text.x = element_text(angle = 45, hjust = 1))+theme(panel.background = element_rect(fill = '#52b781'))  + theme(legend.position="none")+labs(title='Education Sector as a Proportion of Employment',subtitle='Top 10 and Bottom 10')+ theme(plot.title = element_text(colour='#af571c', size=20))+xlab("")+ylim(.02,.12)->plot.a
+
+Business.size %>%
+  filter(Description=='Educational Services',Sector_share<.0177) %>% 
+  ggplot(aes(x=State,y=Sector_share))+geom_point(aes(x=State,y=Sector_share,size=2))+theme(axis.text.x = element_text(angle = 45, hjust = 1))+theme(panel.background = element_rect(fill = '#52b781'))  + theme(legend.position="none")+xlab("")+ylim(.009,.018)->plot.b
+
+grid.arrange(plot.a, plot.b, nrow = 2)
+
+Business.size %>%
+  filter(Description=='Mining, Quarrying, and Oil and Gas Extraction',Sector_share>.011) %>% 
+  ggplot(aes(x=State,y=Sector_share))+geom_point(aes(x=State,y=Sector_share,size=2))+theme(axis.text.x = element_text(angle = 45, hjust = 1))+theme(panel.background = element_rect(fill = '#7fd893'))  + theme(legend.position="none")+labs(title='Mining, Quarrying, and Oil and Gas Extraction Sector as a Proportion of Employment',subtitle='Top 10 and Bottom 10')+ theme(plot.title = element_text(colour='#af571c', size=20))+xlab("")+ylim(.008,.12)->plot.a
+
+Business.size %>%
+  filter(Description=='Mining, Quarrying, and Oil and Gas Extraction',Sector_share<.0005) %>% 
+  ggplot(aes(x=State,y=Sector_share))+geom_point(aes(x=State,y=Sector_share,size=2))+theme(axis.text.x = element_text(angle = 45, hjust = 1))+theme(panel.background = element_rect(fill = '#7fd893'))  + theme(legend.position="none")+xlab("")+ylim(.000005,.0005)->plot.b
+
+grid.arrange(plot.a, plot.b, nrow = 2)
+
+Business.size %>%
+  filter(Description=='Information',Sector_share>.028) %>% 
+  ggplot(aes(x=State,y=Sector_share))+geom_point(aes(x=State,y=Sector_share,size=2))+theme(axis.text.x = element_text(angle = 45, hjust = 1))+theme(panel.background = element_rect(fill = '#52b781'))  + theme(legend.position="none")+labs(title='Information Sector as a Proportion of Employment',subtitle='Top 10 and Bottom 10')+ theme(plot.title = element_text(colour='#af571c', size=20))+xlab("")+ylim(.025,.055)->plot.a
+
+Business.size %>%
+  filter(Description=='Information',Sector_share<.0187) %>% 
+  ggplot(aes(x=State,y=Sector_share))+geom_point(aes(x=State,y=Sector_share,size=2))+theme(axis.text.x = element_text(angle = 45, hjust = 1))+theme(panel.background = element_rect(fill = '#52b781'))  + theme(legend.position="none")+xlab("")+ylim(.0142,.0188)->plot.b
+
+grid.arrange(plot.a, plot.b, nrow = 2)
+
+write.csv(Business.size, file = "/Users/dawig/Documents/cd_Naic_Test.csv")
+```  
+<left><h1><span style="color:rgb(96, 15, 15);background-color:rgb(254, 249, 242)">=======================================================================</h1></left>   
+
+<left><h2><span style="color:rgb(51, 92, 159);background-color:rgb(254, 249, 242)">Final Data Set: Pokemon</h2></left>  
+
+<left><h3><span style="color:rgb(51, 92, 159);background-color:rgb(254, 249, 242)">After downloading our Pokemon data, we transpose our data to put our observations into rows and variables into columns.  It was originally resistant, but was made possible by using header=FALSE.  This left us with a task of moving the appropriate row to variable names and starting our data in the first row.</h3></left>
+```{r warning=FALSE, message=FALSE}
+
+Poke.matrix<-matrix(ncol=41,nrow=801)
+Poke.data <-read.csv(text=getURL("https://raw.githubusercontent.com/gabartomeo/data607-cunysps/master/Project02/pokemon_proj02.csv"), header=FALSE,stringsAsFactors = FALSE)
+
+Poke.data<- t(Poke.data)
+colnames(Poke.data)<- Poke.data[1,]
+Poke.data<- Poke.data[-1,]
+Poke.matrix[,39]<- as.numeric(as.character(Poke.data[,39]))
+for(i in c(2:26)){
+Poke.matrix[,i]<- as.numeric(as.character(Poke.data[,i]))
+}
+```  
+<left><h3><span style="color:rgb(51, 92, 159);background-color:rgb(254, 249, 242)">Our data was of mixed type.  Numerical data was particularly stubborn and resisted the usual efforts to cast it as numeric.  We created a new matrix with the numeric data we wanted to use so that it would have a clean place to reside.  That allowed us to recast it as numeric.  To analyze our data, we look at the unadjusted R^2^ of appropriate variables to find promising correlations.</h3></left>  
+```{r warning=FALSE}
+lin.model<-matrix(nrow=41)
+for (i in c(2:24,26))    {
+lin.model.temp<-lm(Poke.matrix[,39]~Poke.matrix[,i])
+
+lin.model[i]<-summary(lm(Poke.matrix[,39]~Poke.matrix[,i]))$r.squared
+}
+lin.model[1:26]
+lin.model.20<-lm(Poke.matrix[,39]~Poke.matrix[,20])
+summary(lin.model.temp)
+lin.model.21<-lm(Poke.matrix[,39]~Poke.matrix[,21])
+summary(lin.model.temp)
+lin.model.22<-lm(Poke.matrix[,39]~Poke.matrix[,22])
+summary(lin.model.temp)
+lin.model.23<-lm(Poke.matrix[,39]~Poke.matrix[,23])
+summary(lin.model.temp)
+lin.model.24<-lm(Poke.matrix[,39]~Poke.matrix[,24])
+summary(lin.model.temp)
+
+lin.model.26<-lm(Poke.matrix[,39]~Poke.matrix[,26])
+summary(lin.model.temp)
+Poke.matrix<-tbl_df(Poke.matrix)
+```  
+
+```{r warning=FALSE,echo=FALSE}
+plot.a<-ggplot(Poke.matrix, aes(x=Poke.matrix$V20, y=Poke.matrix$V39)) +
+  geom_point(colour = '#eff97c',size=1.9)+labs(x='',y='Weight in Kg')+theme(panel.background = element_rect(fill = '#282806'))+ theme(axis.title = element_text(colour='#563808', size=14))+labs(title='Attack')+ theme(plot.title = element_text(colour='#563808', size=14))
+
+
+plot.b<-ggplot(Poke.matrix, aes(x=Poke.matrix$V21, y=Poke.matrix$V39)) +
+  geom_point(colour = '#f93963',size=1.9)+labs(x='',y='')+theme(panel.background = element_rect(fill = '#282806'))+ theme(axis.title = element_text(colour='#563808', size=14))+labs(title='Base Egg Steps')+ theme(plot.title = element_text(colour='#563808', size=14))
+
+plot.c<-ggplot(Poke.matrix, aes(x=Poke.matrix$V22, y=Poke.matrix$V39)) +
+  geom_point(colour = '#c643f2',size=1.9)+labs(x='',y='')+theme(panel.background = element_rect(fill = '#282806'))+ theme(axis.title = element_text(colour='#563808', size=14))+labs(title='Base Happiness')+ theme(plot.title = element_text(colour='#563808', size=14))
+
+plot.d<-ggplot(Poke.matrix, aes(x=Poke.matrix$V23, y=Poke.matrix$V39)) +
+  geom_point(colour = '#78ede3',size=1.9)+labs(x='Base Total',y='Weight in Kg')+theme(panel.background = element_rect(fill = '#282806'))+ theme(axis.title = element_text(colour='#563808', size=14))
+
+plot.e<-ggplot(Poke.matrix, aes(x=Poke.matrix$V24, y=Poke.matrix$V39)) +
+  geom_point(colour = '#f4b116',size=1.9)+labs(x='Capture Rate',y='')+theme(panel.background = element_rect(fill = '#282806'))+ theme(axis.title = element_text(colour='#563808', size=14))
+
+plot.f<-ggplot(Poke.matrix, aes(x=Poke.matrix$V26, y=Poke.matrix$V39)) +
+  geom_point(colour = '#31e28a',size=1.9)+labs(x='Defense',y='')+theme(panel.background = element_rect(fill = '#282806'))+ theme(axis.title = element_text(colour='#563808', size=14))
+
+grid.arrange(plot.a, plot.b,plot.c, plot.d,plot.e, plot.f, nrow = 2)
+
+```  
+<left><h3><span style="color:rgb(51, 142, 159);background-color:rgb(254, 249, 242)">We ran 6 linear models after checking unadjusted R^2^ for 24 variables.  This type of exploratory method is potentially dangerous when making inferences.  We can justify it for 3 reasons:  We have 802 observations, allowing sufficient degrees of freedom.  We're not making important decisions based on our results.  This researcher was already in college when Pokemon was released and doesn't really understand Pokemon. </h3></left>  
+
+<left><h3><span style="color:rgb(51, 92, 159);background-color:rgb(254, 249, 242)">Base egg steps and base happiness both have discrete values and cause the data to line up in bands.  This makes sense, given that these variables were created by a programmer or author at some point who had to set levels.  Base egg steps has a mixture of continuous and discrete data.  </h3></left> 
+
