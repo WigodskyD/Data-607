@@ -1,0 +1,184 @@
+---
+title: "Data_607_Week7.Rmd"
+author: "Dan Wigodsky"
+date: "March 16, 2018"
+output: html_document
+---
+<body style="background-color:#dbe9ff;">
+
+<h1><span style="color:rgb(131, 122, 49)"><center>Table capture from html, xml and json files</span></h1>
+<h3><span style="color:rgb(171, 82, 19)">______________________________________</span></h3>
+<h3><span style="color:rgb(171, 82, 19)">Table from html document:</span></h3>
+```{r echo=FALSE, warning=FALSE,message=FALSE}
+options(width = 190)
+library(RCurl)
+library(XML)
+library(xml2)
+library(jsonlite)
+library(rvest)
+library(ggplot2)
+library(knitr)
+Books.from.XML<-xmlParse(getURL("https://raw.githubusercontent.com/WigodskyD/data-sets/master/books.xml"))
+root.1<-xmlRoot(Books.from.XML)
+my.xml.data.frame<-xmlToDataFrame(root.1)
+Books.from.json<-fromJSON(getURL("https://raw.githubusercontent.com/WigodskyD/data-sets/master/books.json"))
+Books.from.json<-do.call("rbind",lapply(Books.from.json,data.frame, stringsAsFactors=FALSE))
+```  
+
+```{r echo=FALSE}
+Books.from.HTML<-htmlTreeParse(file=getURL("https://raw.githubusercontent.com/WigodskyD/data-sets/master/books3.html"), useInternal = TRUE)
+book<-read_html(getURL("https://raw.githubusercontent.com/WigodskyD/data-sets/master/books3.html"))
+book.a<- Title <- book %>% 
+  html_nodes("table tr") %>%
+  html_text() 
+book.b<- Title <- book %>% 
+  html_nodes("table th") %>%
+  html_text()  
+book.c<- Title <- book %>% 
+  html_nodes("table td") %>%
+  html_text() 
+book.matrix<-matrix(nrow=3,ncol=9)
+for (i in 1:27){
+  j<-i%%9 
+  j[j == 0] <-9
+  k<-(floor((i-1)/9)+1)
+     book.matrix[k,j]<-book.c[i]
+               }
+Books.from.HTML <- data.frame('book.b[1]'=character(),
+                              'book.b[2]'=character(),
+                              'book.b[3]'=character(),
+                              'book.b[4]'=character(),
+                              'book.b[5]'=character(),
+                              'book.b[6]'=character(),
+                              'book.b[7]'=character(),
+                              'book.b[8]'=character(),
+                              'book.b[9]'=character(),
+                 stringsAsFactors=FALSE)
+Books.from.HTML<-data.frame(book.matrix)
+colnames(Books.from.HTML)<-book.b
+```  
+
+```{r echo=FALSE}
+kable(Books.from.HTML[1:3,])
+```   
+
+<h3><span style="color:rgb(171, 82, 19)">______________________________________</span></h3>
+<h3><span style="color:rgb(171, 82, 19)">Table from XML document:</span></h3>
+```{r echo=FALSE}
+kable(my.xml.data.frame)
+```   
+
+<h3><span style="color:rgb(171, 82, 19)">______________________________________</span></h3>
+<h3><span style="color:rgb(171, 82, 19)">Table from json document:</span></h3>
+
+```{r echo=FALSE}
+kable(Books.from.json[,1])
+```  
+
+```{r echo=FALSE}
+kable(Books.from.json[,2])
+```  
+
+```{r echo=FALSE}
+kable(Books.from.json[,3])
+```   
+
+```{r echo=FALSE}
+kable(Books.from.json[,4])
+```  
+
+<h3><span style="color:rgb(171, 82, 19)">______________________________________</span></h3>
+<h3><span style="color:rgb(41, 82, 119)">Structure for json-sourced data frame:</span></h3>
+
+```{r echo=FALSE}
+str(Books.from.json)
+print('Column names:')
+colnames(Books.from.json)
+```  
+
+<h3><span style="color:rgb(171, 82, 19)">______________________________________</span></h3>
+<h3><span style="color:rgb(41, 82, 119)">Structure for html-sourced data frame:</span></h3>
+
+```{r echo=FALSE}
+str(Books.from.HTML)
+``` 
+
+<h3><span style="color:rgb(171, 82, 19)">______________________________________</span></h3>
+<h3><span style="color:rgb(41, 82, 119)">Structure for XML-sourced data frame:</span></h3>
+
+```{r echo=FALSE}
+str(my.xml.data.frame)
+```  
+
+<h3><span style="color:rgb(31, 119, 72)">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Our data frames started with different forms and ended with different forms.  The most notable difference is the form of json data.  It allows one to create a variable that has a non-fixed number of entries for a single column name.  Json allows them to be grouped together so one doesn't need to create space for five authors on the off chance that a book has 5 books.  In reporting on our data, we might have to go through an extra step of separating the data.  The json-based data frame has an extra dimension.  On the other hand, one doesn't have to create multiple categories for something like author, which naturally has one name.</span></h3>  
+
+<h3><span style="color:rgb(31, 119, 72)">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Another important difference between taking data from the sources was the difficulty encountered in parsing html data.  Tools for XML and json data were fairly straightforward and created output with a small number of lines of code.  The parsing tree from the XML package offers an opportunity to have a DOM that efficiently describes relationships among the parts of the data.  It is not very user-friendly and requires extra code to access the elements of the data. </span></h3>
+
+<h4><span style="color:rgb(31, 119, 242)">The code used to create our tables follows: </span></h4>  
+  
+  
+```{r eval=FALSE}
+options(width = 190)
+library(RCurl)
+library(XML)
+library(xml2)
+library(jsonlite)
+library(rvest)
+library(ggplot2)
+library(knitr)
+Books.from.XML<-xmlParse(getURL("https://raw.githubusercontent.com/WigodskyD/data-sets/master/books.xml"))
+root.1<-xmlRoot(Books.from.XML)
+my.xml.data.frame<-xmlToDataFrame(root.1)
+Books.from.json<-fromJSON(getURL("https://raw.githubusercontent.com/WigodskyD/data-sets/master/books.json"))
+Books.from.json<-do.call("rbind",lapply(Books.from.json,data.frame, stringsAsFactors=FALSE))
+Books.from.HTML<-htmlTreeParse(file=getURL("https://raw.githubusercontent.com/WigodskyD/data-sets/master/books3.html"), useInternal = TRUE)
+book<-read_html(getURL("https://raw.githubusercontent.com/WigodskyD/data-sets/master/books3.html"))
+book.a<- Title <- book %>% 
+  html_nodes("table tr") %>%
+  html_text() 
+book.b<- Title <- book %>% 
+  html_nodes("table th") %>%
+  html_text()  
+book.c<- Title <- book %>% 
+  html_nodes("table td") %>%
+  html_text() 
+book.matrix<-matrix(nrow=3,ncol=9)
+for (i in 1:27){
+  j<-i%%9 
+  j[j == 0] <-9
+  k<-(floor((i-1)/9)+1)
+     book.matrix[k,j]<-book.c[i]
+               }
+Books.from.HTML <- data.frame('book.b[1]'=character(),
+                              'book.b[2]'=character(),
+                              'book.b[3]'=character(),
+                              'book.b[4]'=character(),
+                              'book.b[5]'=character(),
+                              'book.b[6]'=character(),
+                              'book.b[7]'=character(),
+                              'book.b[8]'=character(),
+                              'book.b[9]'=character(),
+                 stringsAsFactors=FALSE)
+Books.from.HTML<-data.frame(book.matrix)
+colnames(Books.from.HTML)<-book.b
+
+kable(Books.from.HTML[1:3,])
+
+kable(my.xml.data.frame)
+
+kable(Books.from.json[,1])
+
+kable(Books.from.json[,2])
+
+kable(Books.from.json[,3])
+
+kable(Books.from.json[,4])
+
+str(Books.from.json)
+
+str(Books.from.HTML)
+
+str(my.xml.data.frame)
+``` 
+        
+              
