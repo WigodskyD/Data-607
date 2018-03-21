@@ -1,0 +1,75 @@
+---
+title: "Data607_web_scraping"
+author: "Dan Wigodsky"
+date: "March 21, 2018"
+output: html_document
+---
+<body style="background-color:#e6f0f2;">
+
+<h3><span style="color:rgb(51, 92, 159)">We use data from indeed to build a file with many job postings.  Each step is turned on and off separately so we don't pull too much data from indeed.</h3>
+<h3><span style="color:rgb(51, 92, 159)">Instructions for use:  
+1.Find all tags starting with `"C:/Users/dawig/Desktop`" and change to fit your local file location desired.  
+2.Turn on Selector section.  For each group of 10 jobs, select a start for first number to pull(find 'start=')
+&nbsp;&nbsp;&nbsp;Change file10 to desired file number.  
+3. For each file  created in step 1, you can run the grabber and processor.
+&nbsp;&nbsp;&nbsp;Change file10 on line 3 of the grabber for each file you made in step 2.
+
+<h2><span style="color:rgb(51, 92, 159)">Selector for 10 postings</h2>
+
+```
+#Get a page with 10 results of search for data scientist listing
+data<-unlist(readLines('https://www.indeed.com/jobs?q=data+scientist&l=White+Plains%2C+NY&start=295'))
+write(data,file = "C:/Users/dawig/Desktop/web_scrapings/file10")
+```  
+
+<h2><span style="color:rgb(51, 92, 159)">Grabber for 10 postings</h2>
+```
+#Use listing of 10 to pull jk codes that indeed uses to fetch jobs.
+library(stringr)
+#Instead of automating this step, we are choosing files with 10 tags individually--to not take too much from indeed.
+new.data<- readLines("C:/Users/dawig/Desktop/web_scrapings/file10")
+first.job<-grep("jobmap",new.data)
+first.job
+new.data[first.job[2]]
+job.code<-matrix(nrow=10)
+for (i in 2:11){
+job.code[i-1]<-unlist(str_extract(new.data[first.job[i]],"[:alnum:]{16}"))
+               }
+#Use job codes to pull data files with individual jobs
+for (i in 1:10)     {
+temp.code<-job.code[i]
+url.single.job.posting<-paste("https://www.indeed.com/viewjob?jk=",temp.code,collapse="")
+url.single.job.posting<-gsub(" ", "", url.single.job.posting, fixed = TRUE)
+url.single.job.posting
+single.job.posting<-readLines(url.single.job.posting)
+write.to.file<-"C:/Users/dawig/Desktop/web_scrapings/jobfile"
+job.file.writer<-paste(write.to.file,i)
+job.file.writer<-gsub(" ", "", job.file.writer, fixed = TRUE)
+write(single.job.posting,file = job.file.writer)
+                     }
+```
+
+<h2><span style="color:rgb(51, 92, 159)">Processor for 10 postings-appends to end of cleanjobfiles</h2>
+```
+#Get names for job files to pull
+job.file.opener<-"C:/Users/dawig/Desktop/web_scrapings/jobfile"
+job.file.matrix<-matrix(nrow=10)
+for(i in 1:10){
+  job.file.matrix[i]<-paste(job.file.opener,i)
+              }
+job.file.matrix<-gsub(" ", "",job.file.matrix, fixed = TRUE)
+
+#Pull job files, clean them, append them to a single file
+for(i in 1:10)     {
+look.at.job.file<- readLines(job.file.matrix[i])
+job.beginning<-grep("job_summary",look.at.job.file)
+job.ending<-grep("result-link-bar", look.at.job.file)
+small.job.posting<-(look.at.job.file[job.beginning[1]:job.ending[1]])
+write(small.job.posting,file = "C:/Users/dawig/Desktop/web_scrapings/cleanjobfiles",append=TRUE)
+                    }
+```  
+
+
+<h3><span style="color:rgb(51, 92, 159)">Jobs are presented in a single file.  Each is tagged with a beginning and ending of the style: `<span id="job_summary" class="summary"><div><b>Data Engineer</b></div><div>`  
+`<div class="result-link-bar-container result-link-bar-viewjob">`</h3>
+
