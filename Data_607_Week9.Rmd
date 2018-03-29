@@ -1,0 +1,107 @@
+---
+title: "Data_607_Week9"
+author: "Dan Wigodsky"
+date: "March 27, 2018"
+output: html_document
+---
+<left><b><center><font size="28"><span style="color:#11100d">API-culture</h1>
+<left><h3><center><span style="color:#11100d">New York Times articles about bees</h3>
+<body style="background-color:#f7da5b;">
+![](https://raw.githubusercontent.com/WigodskyD/data-sets/master/bee_honeybee_honeycomb_215156.jpg)
+
+
+```{r warning=FALSE,message=FALSE,echo=FALSE}
+library(httr)
+library(jsonlite)
+library(rtimes)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```  
+
+```{r warning=FALSE,message=FALSE,echo=FALSE}
+
+bee_death_headlines<- readLines("C:/Users/dawig/Desktop/CUNY/Times_bee_headline_1")
+bee_death_headlines
+```  
+
+<left><h3><center><span style="color:#11100d">"Your task is to choose one of the New York Times APIs, construct an interface in R to read in the JSON data, and transform it to an R dataframe."</h3>
+
+<left><h4><center><span style="color:#11100d">We chose 3 searches in the New York Times article search API.  We looked at articles from 2000-2018.  Our first term, "colony collapse disorder", didn't return many articles.  "Bee death" returned 30 results, listed above.  The broadest search, "bee" returned 352 articles.  We took articles with the word "bee" and created a data frame with information about the headline, author, date and url, along with a short snippet of each article.  To limit the number of calls to the API, we saved our results to a file before working with them.</h4>
+
+```{r echo=TRUE,eval=FALSE}
+Sys.setenv(NYTIMES_AS_KEY = "b3c9df9f2ebc43c0bdd8d15f088632f7")
+bee_data<- as_search(q="bee deaths", begin_date = "2000101", end_date = '20180301',all_results=TRUE)
+head(bee_data)
+data_for_bees<-unclass(bee_data$data)
+
+web_url<-data_for_bees$web_url
+snippet<-data_for_bees$snippet
+author_of_article<-data_for_bees$byline.original
+headline<-data_for_bees$headline.main
+uri<-data_for_bees$uri
+publish_date<-data_for_bees$pub_date
+
+write.to.file<-"C:/Users/dawig/Desktop/CUNY/Times_bee_url_2"
+write(web_url,file = write.to.file)
+write.to.file<-"C:/Users/dawig/Desktop/CUNY/Times_bee_uri_2"
+write(uri,file = write.to.file)
+write.to.file<-"C:/Users/dawig/Desktop/CUNY/Times_bee_snippet_2"
+write(snippet,file = write.to.file)
+write.to.file<-"C:/Users/dawig/Desktop/CUNY/Times_bee_author_2"
+write(author_of_article,file = write.to.file)
+write.to.file<-"C:/Users/dawig/Desktop/CUNY/Times_bee_headline_2"
+write(headline,file = write.to.file)
+write.to.file<-"C:/Users/dawig/Desktop/CUNY/Times_bee_date_2"
+write(publish_date,file = write.to.file)
+
+```  
+
+<left><h4><center><span style="color:#11100d">Colony collapse disorder has emerged as a threat to honeybees and to our ability to grow crops for food.  We wanted to find if the interest in bees changed over the period 2000-2018 to see if we could track the development of the story.  In order to have enough data to be meaningful, we chose the broadest search.  To smooth our data, we created a 5-month moving average.</h4>  
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+bee_date_input<- readLines("C:/Users/dawig/Desktop/CUNY/Times_bee_date_2")
+bee_date_input<- tbl_df(cbind(bee_date_input,1))
+#bee_date_input<-as.Date(bee_date_input)
+
+bee_date_input %>% 
+  separate(bee_date_input[1],c("Year", "Month"), sep = "-")->bee_date_input
+bee_date_input %>% group_by(Year,Month) %>%
+  summarize(amount=n())->bee_date_output
+bee_data_output<-unite(bee_date_output, "Date", Year,Month, sep = "", remove = TRUE)
+helper<-unlist(bee_data_output[1])
+helper<-as.numeric(helper)
+helper2<-unlist(bee_data_output[2])
+plot.frame<-tbl_df(cbind(helper,helper2))
+for(i in 4:144){
+  plot.frame[i,3]<-(plot.frame[i-3,2]+plot.frame[i-2,2]+plot.frame[i-1,2]+plot.frame[i,2]+plot.frame[i+1,2]+plot.frame[(i+2),2]+plot.frame[i+3,2])
+
+              }
+colnames(plot.frame)<-c("month","count","average")
+```
+
+```{r warning=FALSE, echo=FALSE}
+ggplot(plot.frame, aes(x=plot.frame$month,y=plot.frame$average)) + geom_area(fill='#11100d',alpha=.7)+ theme(panel.background = element_rect(fill = '#f2d34d'))+theme(axis.text.x = element_blank(),axis.ticks = element_blank())+labs(x="2000-2018",y="5-month moving averages",title='NY Times Articles about Bees')
+```   
+<left><h4><center><span style="color:#11100d">Now, we produce our data frame with information from the articles.</h4>
+
+```{r}
+Bee_df <- data.frame(matrix(NA, nrow=352, ncol=5))
+
+Bee_df[5]<-readLines("C:/Users/dawig/Desktop/CUNY/Times_bee_url_2")
+Bee_df[6]<-readLines("C:/Users/dawig/Desktop/CUNY/Times_bee_uri_2")
+Bee_df[2]<-readLines("C:/Users/dawig/Desktop/CUNY/Times_bee_snippet_2")
+Bee_df[3]<-readLines("C:/Users/dawig/Desktop/CUNY/Times_bee_author_2")
+Bee_df[1]<-readLines("C:/Users/dawig/Desktop/CUNY/Times_bee_headline_2")
+Bee_df[4]<-readLines("C:/Users/dawig/Desktop/CUNY/Times_bee_date_2")
+```  
+
+```{r echo=FALSE}
+str(Bee_df)
+Bee_df[1][18:100,]
+```   
+
+<left><h3><center><span style="color:#11100d">Our data frame contains a lot of articles that we are not interested in.  In the selection above, we can see that a number of obituaries appear.  In 2014, a lot of references were to the movie _Maya the Bee_.  In the end, to have enough references to track them over time, we admitted a lot of unrelated articles.  To be more successful in our analysis, we would have to pair it with searches of many more media outlets and then be able to filter our results more appropriately, but still find enough articles to measure.  Alternatively, we could have modeled amount of time between articles to find out when they appeared more frequently.</h3>
+  
+  
+![](https://raw.githubusercontent.com/WigodskyD/data-sets/master/Maya_the_Bee_.jpg).
