@@ -1,0 +1,203 @@
+---
+title: "Data_607_Project4"
+author: "Dan Wigodsky"
+date: "April 13, 2018"
+output: html_document
+---
+<body style="background-color:#f7f3d7;">
+<center><h1><span style="color:rgb(51, 102, 159);background-color:rgb(254, 249, 242)">Spam Checker Project</h1>  
+
+<h2><span style="color:rgb(51, 102, 159);background-color:rgb(254, 249, 242">Task:  Create a model to intake e-mail messages and determine whether they are unwanted messages or not.</h2>  
+
+<h3><span style="color:rgb(51, 102, 159)">We created a model by searching for terms within a set of spam e-mails.  Then we used R to input all of the emails within our "easy ham" and "spam" test sets.  To augment our terms, we created a term document matrix with the TM package and searched for the most common terms in the spam set and in the ham set.</h3>  
+
+<h3><span style="color:rgb(51, 102, 159)">In each case, we compared the prevalence of each word in the spam set to its prevalence in the ham set.  We created a scoring algorithm that gave greater weight to words that were more heavily weighted in a particular set.  We chose to score spam e-mails positive and ham e-mails negative.  In order to smooth the scoring appropriately, we chose a fairly complicated logarithmic scale.  We did this because the spam set had terms that showed up in 0% of the ham, which need a large weighting.  Most of our terms in the ham set were small.  However, our ratios there ranged from single digit numbers to over a million.  By creating a new scale, we were able to give all terms some weight, but gave terms that were more concentrated in a particular set the most weight.  Finally, we weight spam-centric terms higher so bad e-mails could be caught.</h3>   
+   
+<h3><span style="color:rgb(51, 102, 159)">We chose not to remove common terms or stop words.  We assumed that the normal e-mails might contain more usual speech patterns.  The prevalence of words used commonly in sentences might be a marker for the regular e-mails.</h3>  
+
+
+<h3><span style="color:rgb(51, 102, 159)">Our model performed quite well with the test data.  It found 99.01% of the the true emails and 84% of the spam. Sadly, it scored 0% with the test data.  Our hand-picked terms found about 70% of the genuine, "hard ham" e-mails, but the parially supervised model did exceedingly poorly. The reason is pretty clear.  The compiler of the corpus put nearly all html-based e-mails in the "hard ham" set, but filled the "easy spam" with html-laden e-mails. The prevalent terms found by the TM package included many words from the html coding.  A future version could seek to minimize the html codes in the list and seek to determine if html is a true marker for spam e-mails.  This could even be done by rerunning the above process while including part of the "hard ham" set.</h3>
+
+```{r echo=FALSE, warning=FALSE}
+options(width = 190)
+library(stringr)
+library(dplyr)
+```  
+<h3><span style="color:rgb(51, 102, 159)">In our program, we read in the list of words to search for.  Originally, this list was chosen by the researcher.  It was later augment by lists created from word-prevalence within the TM corpus.  We then count and compare ratios.</h3>
+
+```{r eval=FALSE, warning=FALSE, message=FALSE}
+ham_count<-vector(mode = "numeric", length = 651)
+spam_words<-vector(mode = "character", length = 651)
+spam_words_percent<-vector(mode = "numeric", length = 651)
+ham_words_percent<-vector(mode = "numeric", length = 651)
+word_comparison<-vector(mode = "numeric", length = 651)
+word_id<-vector(mode = "numeric", length = 651)
+spam_words_file<-"C:/Users/dawig/Desktop/CUNY/spam_classifier/spam_words_list.txt"
+spam_words<-readLines(spam_words_file)
+length(spam_words)
+for (i in 1:2551){
+read_in_file<-"C:/Users/dawig/Desktop/CUNY/spam_classifier/easy_ham/"
+read_in_file<-str_c(read_in_file, i, ".txt")
+real_email<-readChar(read_in_file, file.info(read_in_file)$size)
+real_email<-tolower(real_email)
+for(j in 1:651){
+if (str_detect(real_email,spam_words[[j]])==1){ham_count[[j]]=ham_count[[j]]+1} else{}
+               }
+                 }
+spam_count<-vector(mode = "numeric", length = 651)
+for (i in 0:500){
+read_in_file<-"C:/Users/dawig/Desktop/CUNY/spam_classifier/spam/"
+read_in_file<-str_c(read_in_file, i, "spam.txt")
+real_email<-readChar(read_in_file, file.info(read_in_file)$size)
+real_email<-tolower(real_email)
+for(j in 1:651){
+if (str_detect(real_email,spam_words[[j]])==1){spam_count[[j]]=spam_count[[j]]+1} else{}
+               }
+                 }
+count_frame<-cbind(spam_count,ham_count,spam_words_percent,ham_words_percent,word_comparison,word_id)
+str(count_frame)
+for (i in 1:651){
+count_frame[i,3]<-(count_frame[i,1]/501)
+count_frame[i,4]<-(count_frame[i,2]/2551)
+count_frame[i,3][count_frame[i,3] == 0] <-.00000001
+count_frame[i,5]<-(count_frame[i,4]/count_frame[i,3])
+count_frame[i,6]<-i
+}
+#count_frame
+low_frame<-subset(count_frame, count_frame[,5]<.1)
+low_frame
+high_frame<-subset(count_frame, count_frame[,5]>1)
+high_frame
+spam_checker<- data.frame('spam_word'=character(),
+                              'addition_factor'=integer(),
+stringsAsFactors=FALSE)
+```   
+   
+
+<h3><span style="color:rgb(51, 102, 159)">We placed our words in 2 sets.  One contained words that were more prevalent in the spam e-mail set and vice versa.  We put them together to form a single set to constitute a list and set of weightings to check for spam e-mails.</h3>   
+
+
+```{r eval=FALSE}
+for(i in 1:88){
+spam_checker[i,1]<-spam_words[low_frame[i,6]]
+spam_checker[i,2]<-(1+(32*(2-exp(low_frame[i,5]*6.8))))
+               }
+for(i in 1:306)     {
+spam_checker[i+88,1]<-spam_words[high_frame[i,6]]
+spam_checker[i+88,2]<-(0-((2.8-(exp(1/high_frame[i,5])))))
+                   }
+write.csv(spam_checker, file = "C:/Users/dawig/Desktop/CUNY/spam_classifier/spam_checker.csv")
+```   
+<h3><span style="color:rgb(51, 102, 159)">The following code produced our computer-generated lists of most common terms in the spam and ham e-mail sets.</h3>   
+
+
+```{r eval=FALSE}
+library(tm)
+library(stringr)
+library(SnowballC)
+ham_set <- rep(list(),2551)
+for(i in 1:2551){
+read_in_file<-"C:/Users/dawig/Desktop/CUNY/spam_classifier/easy_ham/"
+read_in_file<-str_c(read_in_file, i, ".txt")
+ham_set[i]<-readChar(read_in_file, file.info(read_in_file)$size)
+ham_set[i]<-tolower(ham_set[i])
+              }
+ham_corpus<-Corpus(VectorSource(ham_set))
+ham_corpus[[1]]
+meta(ham_corpus[[1]])
+ham_tdm<-TermDocumentMatrix(ham_corpus)
+ham_tdm
+ham_corpus_stems<-tm_map(ham_corpus,stemDocument)
+ham_tdm<-removeSparseTerms(ham_tdm,1-(10/length(ham_corpus)))
+ham_terms2<-findFreqTerms(ham_tdm, lowfreq=300, highfreq=Inf)
+write(ham_terms2,"C:/Users/dawig/Desktop/CUNY/spam_classifier/ham_words2.txt")
+spam_set <- rep(list(),500)
+for(i in 1:500){
+read_in_file<-"C:/Users/dawig/Desktop/CUNY/spam_classifier/spam/"
+read_in_file<-str_c(read_in_file, i, "spam.txt")
+spam_set[i]<-readChar(read_in_file, file.info(read_in_file)$size)
+spam_set[i]<-tolower(spam_set[i])
+              }
+spam_corpus<-Corpus(VectorSource(spam_set))
+spam_corpus[[1]]
+meta(spam_corpus[[1]])
+spam_tdm<-TermDocumentMatrix(spam_corpus)
+spam_tdm
+spam_corpus_stems<-tm_map(spam_corpus,stemDocument)
+spam_tdm<-removeSparseTerms(spam_tdm,1-(10/length(spam_corpus)))
+spam_terms2<-findFreqTerms(spam_tdm, lowfreq=300, highfreq=Inf)
+#write(spam_terms2,"C:/Users/dawig/Desktop/CUNY/spam_classifier/spam_words2.txt")
+spam.holder.a<-readLines('C:/Users/dawig/Desktop/CUNY/spam_classifier/spam_words2.txt')
+spam.holder.b<-readLines('C:/Users/dawig/Desktop/CUNY/spam_classifier/ham_words2.txt')
+spam.holder.c<-readLines('C:/Users/dawig/Desktop/CUNY/spam_classifier/spam_words.txt')
+spam.list.final<-c(spam.holder.a,spam.holder.b,spam.holder.c)
+spam.list.final
+#write(spam.list.final,"C:/Users/dawig/Desktop/CUNY/spam_classifier/spam_words_list.txt")
+```  
+
+```{r warning=FALSE}
+spam_checker<-read.csv("C:/Users/dawig/Desktop/CUNY/spam_classifier/spam_checker.csv",stringsAsFactors = FALSE)
+spam_score.spam=vector(mode="numeric", length = 500)
+for (i in 1:500){
+read_in_file<-"C:/Users/dawig/Desktop/CUNY/spam_classifier/spam/"
+read_in_file<-str_c(read_in_file, i, "spam.txt")
+real_email<-readChar(read_in_file, file.info(read_in_file)$size)
+real_email<-tolower(real_email)
+for(j in 1:394){
+spam_word<-spam_checker[j,2]
+if (str_detect(real_email,spam_word)==1){
+  spam_score.spam[i]=spam_score.spam[i]+spam_checker[j,3]} else{}
+               }
+                  }
+```  
+
+<h3><span style="color:rgb(51, 102, 159)">Finally, these are the search terms utilized by our spam checker to reach the results mentioned above, followed by performnce percentages.</h3>   
+   
+
+```{r warning=FALSE}
+print(spam_checker)
+spam_score.ham=vector(mode="numeric", length = 2551)
+for (i in 1:2551){
+read_in_file<-"C:/Users/dawig/Desktop/CUNY/spam_classifier/easy_ham/"
+read_in_file<-str_c(read_in_file, i, ".txt")
+real_email<-readChar(read_in_file, file.info(read_in_file)$size)
+real_email<-tolower(real_email)
+for(j in 1:394){
+spam_word<-spam_checker[j,2]
+if (str_detect(real_email,spam_word)==1){
+  spam_score.ham[i]=spam_score.ham[i]+spam_checker[j,3]} else{}
+               }
+                  }
+ham.subset<-subset(spam_score.ham,spam_score.ham < (-10))
+spam.subset<-subset(spam_score.spam,spam_score.spam >(-10))
+length(ham.subset)/ length(spam_score.ham)
+length(spam.subset) / length(spam_score.spam)
+```  
+
+<h3><span style="color:rgb(51, 102, 159)">The overall performance with our model data was:</h3>
+
+```{r warning=FALSE}
+(length(ham.subset)+length(spam.subset))/(length(spam_score.ham)+length(spam_score.spam))
+spam_score.hard.ham=vector(mode="numeric", length = 250)
+for (i in 1:250){
+read_in_file<-"C:/Users/dawig/Desktop/CUNY/spam_classifier/hard_ham/"
+read_in_file<-str_c(read_in_file, i, ".txt")
+real_email<-readChar(read_in_file, file.info(read_in_file)$size)
+real_email<-tolower(real_email)
+for(j in 1:76){
+spam_word<-spam_checker[j,2]
+if (str_detect(real_email,spam_word)==1){
+  spam_score.hard.ham[i]=spam_score.hard.ham[i]+spam_checker[j,3]} else{}
+               }
+                  }
+```   
+
+<h3><span style="color:rgb(51, 102, 159)">The performance with our test hard ham set was:</h3>
+
+```{r warning=FALSE}
+hard.ham.subset<-subset(spam_score.hard.ham,spam_score.hard.ham < (-10))
+length(hard.ham.subset)/ length(spam_score.hard.ham)
+
+```
+
+
