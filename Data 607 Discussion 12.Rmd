@@ -1,0 +1,30 @@
+---
+title: "Data 607 Discussion 12"
+author: "Dan Wigodsky"
+date: "April 18, 2018"
+output: html_document
+---
+
+<body style="background-color:#bce2ca;">
+<center><h1><span style="color:rgb(89, 73, 73)">Week 12 Discussion</h1>  
+
+<center><h1><span style="color:rgb(89, 73, 73)">Recommender Systems: Google Autocomplete</h1>
+
+
+<center><h3><span style="color:rgb(89, 73, 73)">Google's Autocomplete tries to guess what users are typing before they complete it.  It also suggests possibilities.  In the case of an image search, it will also suggest terms that could be used along with the term searched for.  For example, a search for deer will suggest :Buck, Bambi, Whitetail, Red Stag, Cute, Wild, etc.  It includes them as buttons that are color coded by category.  
+
+<center><h3><span style="color:rgb(89, 73, 73)">Google's target users are nearly everyone who uses the internet.  The battle over search, once hot, has largely been ceded to Google.  There are many other search possibilities, but they are integrated into their respective apps and platforms.  When one thinks of looking for something on the internet, Google is the primary brand.  
+
+<center><h3><span style="color:rgb(89, 73, 73)">Users come to Google looking for information.  Originally, the result was the location of a page related to what someone wants to find.  Now, Google integrates information right into its search results.  Instead of bringing users to information, it brings the information right to where they are.  You can even say "OK, Google" and get information audibly.  In this newer, hotter application, Google has competitors from Amazon and Apple.  
+
+
+<center><h3><span style="color:rgb(89, 73, 73)">Google accomplishes those goals through a wide array of ever-changing processes.  In a way, much of Google's business is recommender systems.  Every search includes suggestions to make a search more efficient or more useful.  If they can return better information, the user will use more of their platform.  Google uses linear algebra to solve complex equations, comparing many possibilities quickly.  Google also has to make information usable and store it in a robust manner.  Google has to make information redundant and robust and has to make it resilient in the face of many challenges.  Google uses criteria like previous searches, region, safety (filtering out certain terms) and freshness to filter results to try to improve the usefulness of its suggestions.
+
+<center><h3><span style="color:rgb(89, 73, 73)">Google's site is wide ranging and contains information in many different forms.  At its core, Google was a website search site.  They store wide-ranging information from the internet and on the internet.  Their Autocomplete feature, in particular, has to have complex language analysis to be able to predict the most likely word being typed in.  They also have to match words with phrases or longer sets of terms.    
+
+<center><h3><span style="color:rgb(89, 73, 73)">Google's autocomplete is still missing the ability to parse sentences and answer them.  Ask Jeeves was introduced with much fanfare as a search site that could answer sentences as people could speak them.  It would make search easy and eliminate the need to think through a search request before making it.  It also would allow more complex searches for larger sets of terms and relating them in the appropriate way.  At the time, the technology was not ready and Jeeves receded.  Now, this ability is more ripe, but is being incorporated into newer technologies like voice assistant and other recommender systems.
+
+
+<center><h5><span style="color:rgb(89, 73, 73)">Sources.  
+https://searchengineland.com/how-google-instant-autocomplete-suggestions-work-62592
+https://blog.flexcutech.com/blog/redundancy-the-google-way-a-credit-union-disaster-recovery-plan</h5>
