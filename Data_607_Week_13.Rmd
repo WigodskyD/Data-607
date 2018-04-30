@@ -1,0 +1,69 @@
+---
+title: "Data_607_Week_13"
+author: "Dan Wigodsky"
+date: "April 27, 2018"
+output: html_document
+---
+<left><b><center><font size="28"><span style="color:#0f535b">The Graf/Graph Database</h1>
+<left><h3><center><span style="color:#0f535b">NoSQL database migration to Neo4j from MySQL</h3>
+
+<body style="background-color:#d9f8fc;">
+![](https://raw.githubusercontent.com/WigodskyD/data-sets/master/bridges.png) 
+
+
+<left><h5><center><span style="color:#77bcc4">Konigsburg, Prussia (later Kaliningrad): source for the famous bridge problem that brought us graph theory via Leonhard Euler.  
+  
+<left><h3><center><span style="color:#0f535b">In order to create data for our NoSQL database, we created 4 databases in MySQL.  They contain information on airships, tennis players, discrete math and paper types.  In R, we query the databases to save in csv files for use in Neo4j. </h3>  
+  
+```{r eval=FALSE, warning=FALSE}
+library("RMariaDB")
+library(readr)
+passw<-read_file("SQLpassword.txt")
+MyConnection <- dbConnect(RMariaDB::MariaDB(),user='dan2', password=passw, dbname='graph_graf', host='localhost')
+
+res <- dbSendQuery(MyConnection, "select *from tennis_players;")
+table.1<-dbFetch(res)
+res2 <- dbSendQuery(MyConnection, "select *from airships;")
+table.2<-dbFetch(res2)
+res3 <- dbSendQuery(MyConnection, "select *from paper_types;")
+table.3<-dbFetch(res3)
+res4 <- dbSendQuery(MyConnection, "select *from discrete_mathematics;")
+table.4<-dbFetch(res4)
+dbClearResult(res)
+dbClearResult(res2)
+dbClearResult(res3)
+dbClearResult(res4)
+dbDisconnect(MyConnection)
+write.csv(table.1,file='C:/Users/dawig/.Neo4jDesktop/neo4jDatabases/database-1ab4ebf5-b3d0-42da-8f72-292dd13493b4/installation-3.3.3/import/tennis_players.csv')
+write.csv(table.2,file='C:/Users/dawig/.Neo4jDesktop/neo4jDatabases/database-1ab4ebf5-b3d0-42da-8f72-292dd13493b4/installation-3.3.3/import/airships.csv')
+write.csv(table.3,file='C:/Users/dawig/.Neo4jDesktop/neo4jDatabases/database-1ab4ebf5-b3d0-42da-8f72-292dd13493b4/installation-3.3.3/import/paper_types.csv')
+write.csv(table.4,file='C:/Users/dawig/.Neo4jDesktop/neo4jDatabases/database-1ab4ebf5-b3d0-42da-8f72-292dd13493b4/installation-3.3.3/import/discrete_mathematics.csv')
+```  
+<left><h3><center><span style="color:#0f535b">In Neo4j, we need to create nodes to connect.  We can upload CSV's for each database, which will create nodes.  Each node has an ID and a set of descriptors taken from the corresponding database entry. 
+```{r eval= FALSE}
+load csv with headers from "file:///C:/airships.csv" as airships create (a1:airships{node_name: airships.node_name,country:airships.country,ship_use:airships.ship_use,node_type:airships.node_type})
+```  
+  
+
+![](https://raw.githubusercontent.com/WigodskyD/data-sets/master/graph3.png)
+
+<left><h3><center><span style="color:#0f535b">We can choose which node property to show in a visualization.  For discrete math, we are showing "pioneer".  For airships, we are showing "country".  
+  
+  
+![](https://raw.githubusercontent.com/WigodskyD/data-sets/master/graph4.png)
+
+<left><h3><center><span style="color:#0f535b">In order to see relationships, we create connections for relationships between different nodes.  We want to see which nodes contain the "Graf/graph" homophone.  The graph database allows us to see distant relationships and to see connections that are complicated and come from distant factors.  
+
+```{r eval=FALSE}
+load csv with headers from "file:///C:/airships.csv" as airships load csv with headers from "file:///C:/tennis_players.csv" as tennis_players match (a:airships{node_type:airships.node_type}),(b:tennis_players{node_type:tennis_players.node_type}) where a.node_type="graf/graph" and b.node_type = "graf/graph" create unique (a) - [r:node_type] -> (b)
+```
+
+![](https://raw.githubusercontent.com/WigodskyD/data-sets/master/graph2.png) 
+
+
+<left><h3><center><span style="color:#0f535b">If we want to visualize connections by nationality, we can connect them by that factor.  We connected named pioneers of discrete math with tennis players and with airship manufacturer by country.  
+![](https://raw.githubusercontent.com/WigodskyD/data-sets/master/graph5.svg)  
+
+<left><h3><center><span style="color:#0f535b">In our final graph, we connect a Greek mathematician to a German tennis player.  The German tennis player is connected to an airship used for bombing.  We connect the airship to Swiss tennis players.  This ability, to connect graphs with different qualities in different places, allows us to learn more about our data by bringing together connections we might not expect.  Suppose we have different business lines and we want to find customers to compare to decide what products they would be interested in.  Suppose a set of insurance customers have a set of qualities and we want to compare new customers to decide what type of risk profile they might have.  Being able to see those connections would help us better visualize how disparate data is related.
+![](https://raw.githubusercontent.com/WigodskyD/data-sets/master/graph6.png) 
+
