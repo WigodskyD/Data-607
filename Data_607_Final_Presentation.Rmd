@@ -1,0 +1,398 @@
+---
+title: "Data_607_Final_Presentation"
+author: "Dan Wigodsky"
+date: "May 10, 2018"
+output: html_document
+---
+<body style="background: 
+linear-gradient(63deg, #e2e2e2 23%, transparent 23%) 7px 0, linear-gradient(63deg, transparent 54%, #dddbf9 28%),linear-gradient(63deg, transparent 33%, #e1f7e9 28%, #f7eaea 18%, transparent 32%), #ecf7e6;background-size: 3px 10px;">
+<h1><span style="color:#b7372c"><font face="garamond"><b><center>Poisson Processes and Real Life Data</center></h1>
+<h1><span style="color:#114147"><font face="garamond"><center><b>...</center>
+<h3><span style="color:#114147"><font face="garamond"><b>A poisson process is a counting process in which the number of events in a given time are random and independent.  The number of events can be modeled by a Poisson distribution and the length of time between events can be modeled by an exponential distribution.  A Poisson process is homogeneous if the number of events from one time to another is the same.  </h3>
+  
+<h3><span style="color:#5274bf"><font face="garamond"><b>A Poisson process has three properties that we intend to investigate: thinning, memoryless and use in predicting orders of events.</h3>  
+  
+<h3><span style="color:#114147"><font face="garamond"><b>First, we have to find an area of our process where the mean is relatively stable.  We can see from the graph below (left) that the mean number of runners in a given minute is not very stable.  It starts small, increases rapidly, then decreases rapidly, then shows a spread out tail distribution.  We will revisit this shape at the end.  For now, we look for a section of data in the center where we can find a relatively steady stream of finishers.</h3>  
+  
+<h3><span style="color:#5274bf"><font face="garamond"><b>Our data is scraped from a website with timing data from a triathlon held in Sept. 2013 in Westchester County.  1089 athletes competed in 28 categories of age, gender, and number.  
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(stringr)
+library(stringi)
+library(tm)
+library(dplyr)
+library(ggplot2)
+library(gridExtra)
+library(kableExtra)
+timing.data<-unlist(readLines('https://raw.githubusercontent.com/WigodskyD/data-sets/master/race_times.txt'))
+place<-grep("thead",timing.data)
+timing.data<-timing.data[-c(1:(place[3]-1))]
+new.runner.position<-unlist(str_extract(timing.data,"Athletes/1"))
+new.runner.position<-which(!is.na(new.runner.position), arr.ind=TRUE)
+runner<-matrix(NA,5,1)
+runner.list<-rep(list(runner),1092)
+for(i in 1:1092){
+start.cut<-(new.runner.position[[i]])
+j<-1
+for(k in c(2,4,8,12,15)){
+runner.list[[i]][j]<-timing.data[start.cut+k]
+j<-j+1}
+for(m in 1:5){
+split.part<-strsplit(runner.list[[i]][m],">")
+split.part<-strsplit(split.part[[1]][2],"<")
+runner.list[[i]][m]<-split.part[[1]][1]            }         }
+#------------------------------------------------------------------------------------------------
+for (i in 1:1092)                             {
+  for (j in 2:5)                                 {
+runner.time.raw<-(runner.list[[i]][j])
+runner.time.raw<-str_split(runner.time.raw,"[:punct:]")
+runner.time.raw<-as.numeric(unlist(runner.time.raw))
+runner.time.raw[1]<-(runner.time.raw[1]*60)+runner.time.raw[2]+(runner.time.raw[3]/60)+(runner.time.raw[4]/60000)
+runner.list[[i]][j]<-runner.time.raw[1]        }  }
+runner.list <- data.frame(matrix(unlist(runner.list), nrow=1092, byrow=T),stringsAsFactors=FALSE)
+colnames(runner.list)<-c('class','swim','bike','run','total')
+for (i in 2:5)  {runner.list[,i]<-as.numeric(runner.list[,i])}
+runner.list %>% 
+  arrange(total) %>% 
+    mutate(wait.time=total-lag(total)) %>%
+      mutate(index=row.names(runner.list))->runner.list
+runner.list$index<-as.numeric(runner.list$index)
+plot.a<-ggplot(data = runner.list,aes(x=runner.list$total))+geom_histogram(aes(x=runner.list$total,y=..count..),fill='#2a66af',binwidth=2)+labs(x="minutes to finish triathlon",title="Runner Finish Times")+ theme(panel.background = element_rect(fill = '#aedde5'))
+plot.b<-ggplot(data = runner.list,aes(x=wait.time))+geom_histogram(aes(x=wait.time,y=..count..),fill='#2a66af',binwidth=.006)+ xlim(0, .7)+ theme(panel.background = element_rect(fill = '#aedde5'))+labs(x="wait time until next runner",title="Between Runner Spacing")
+grid.arrange(plot.a, plot.b, nrow = 1)
+```  
+  
+<h3><span style="color:#114147"><font face="garamond"><b>When we look at the time spent waiting for each subsequent finisher, we can see that the race exhibits different behavior at both ends.  Some of the earlier finishers were quite spread out.  The last finishers were even more spread out.</h3>
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(data = runner.list,aes(x=seq(wait.time),y=wait.time))+geom_point(aes(x=seq(wait.time),y=wait.time),color='#a83c74')+labs(x="runner order",title="Between Runner Spacing, by Runner Order")+ theme(panel.background = element_rect(fill = '#cee8ea'))
+```  
+  
+<h3><span style="color:#114147"><font face="garamond"><b>To get a better look at the shape of the wait time between runners, we look at only values below .6 minutes.  We want to see if the outliers at the ends are part of a trend that goes through our data.  We can see that, even where it's relatively stable, the wait times increase the further you are from the median.  With 1089 runners, the median was the 545th runner.</h3>  
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(data = runner.list,aes(x=seq(wait.time),y=wait.time))+geom_point(aes(x=seq(wait.time),y=wait.time),color='#806cd1')+labs(x="runner order",title="Between Runner Spacing, by Runner Order, under .6")+ theme(panel.background = element_rect(fill = '#cee8ea'))+ylim(0,.6)
+```  
+  
+<h3><span style="color:#114147"><font face="garamond"><b>We now turn our attention to the thinning of our process.  When we thin a Poisson process, we can divide it into different independent groups for analysis.    The mean number of runners, or Poisson $\lambda$ can be divided into proportions of the whole.</h3>  
+   
+<h3><span style="color:#114147"><font face="garamond"><b>To determine which groups and which interval to focus on, we look at the individual categories of runners who were tracked for this race.  We want to find those with potentially stable wait times and with a decent number of runners.  We also want a category where the runner finishes were spread out throughout the duration of the race.</h3>
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(data = runner.list,aes(x=index,y=wait.time,color=class))+geom_point(aes(x=index,y=wait.time),fill='#2a66af')+ xlim(000, 1100)+ylim(0,12)+facet_wrap(~class) + theme(legend.position="none")+labs(x="runner order")
+```  
+  
+<h3><span style="color:#114147"><font face="garamond"><b>In the middle group of finishers, between-runner times are smaller than at both ends. Taken together, our categories of runners finishing our race look like this:
+![](https://raw.githubusercontent.com/WigodskyD/data-sets/ed4ecb91f8d02eb6a31220bb1752c08d20ae5873/five_runner_categories.jpg)
+
+<h3><span style="color:#114147"><font face="garamond"><b>To find a relatively homogeneous process, we eliminate the first 200 runners and last 289 runners from our analysis.  This is a good example of the difference between most real-life Poisson processes and more simplified processes used for study.  Processes can take time to get started and can change when there are few individuals left.  A common study problem, waiting at a bank, exhibits this quality.  Banks have starts and ends to their day and have periods where they are more busy.  An insurance line, however, if it tends to have a similar pool from year to year, could remain stable.
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(data = runner.list,aes(x=index,y=wait.time,color=class))+geom_point(aes(x=index,y=wait.time),fill='#2a66af')+ xlim(200, 800)+ylim(0,.6)+facet_wrap(~class) + theme(legend.position="none")+labs(x="runner order")
+#------------------------------------------------------------------------------------------------
+runner.list %>% 
+  filter(class=="45-49 Male"|class=="50-54 Male"|class=="Collegiate Female"|class=="40-44 Male") %>% 
+    filter(between(index,200,800)) %>% 
+       select(class,total,index)->runner.list.short
+lambda.info<-c(1:5)
+lambda.table<-data.frame(cbind(lambda.info,lambda.info))
+colnames(lambda.table)<-c('type', 'mean per minute')
+lambda.table[,1]<-c('4 categories','45-49 Male','50-54 Male','Collegiate Female','40-44 Male')
+lambda.table[,2]<-c(6.8272,1.9976,.9356,1.4413,2.4527)
+```  
+<h3><span style="color:#114147"><font face="garamond"><b>We choose Males 45-49, Males 40-44, Males 50-54 and Collegiate Females to focus our analysis. Within our larger process, there are smaller processes that can be modeled independently from each other or compared to each other. 
+  
+<h3><span style="color:#114147"><font face="garamond"><b><center>...</center></h3> 
+<h4><span style="color:#5557cc;background-color:rgb(254, 254, 252)"><font face="arial"><b><center><u>All Runner Mean and Selected Lambda Values</center></u>
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+kable(lambda.table, "html") %>%
+  kable_styling("striped", full_width = F) %>%
+  column_spec(1, bold = T, color = "white", background = "#D7261E") %>% 
+   column_spec(2, bold = T, color = "#D7261E", background = "white")
+runner.list.short %>% 
+  arrange(class) %>% 
+    mutate(wait.time=total-lag(total))->runner.list.short
+for(i in 1:220) {runner.list.short[i,4][runner.list.short[i,4]<0]<-NA}
+j[j == 0] <-9
+```  
+  
+<h3><span style="color:#114147"><font face="garamond"><b>Now we look at the wait times for our selected sets of runners.  Our between runner times are now interpreted as within-class times.  Each time is now the wait for the next runner of the same group.  Our times are not fully stable, but are far more stable than our beginning data.  We can now look at the memoryless property and the expectation of the type of the next arrival.</h3>
+  
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(data = runner.list.short,aes(x=index,y=wait.time,color=class))+geom_point(aes(x=index,y=wait.time),fill='#2a66af') + theme(legend.position="none")+labs(x="runner order",y="between runner wait times in minutes")+ylim(0,4)+ theme(panel.background = element_rect(fill = '#eeefcb'))
+ggplot(data = runner.list.short,aes(x=index,y=wait.time,color=class))+geom_point(aes(x=index,y=wait.time),fill='#2a66af')+ xlim(200, 800)+ylim(0,4)+facet_wrap(~class) + theme(legend.position="none")+labs(x="runner order")+ theme(panel.background = element_rect(fill = '#f3f4d4'))
+excess.loss<-data.frame( c(1:21))
+for(i in 0:20){
+runner.list.short %>%
+  filter(wait.time>(.05*i))->runner.list.short2
+excess.loss[(i+1),]<-(mean(runner.list.short2$wait.time,na.rm=T)-(.050*i))
+}
+```  
+  
+<h3><span style="color:#114147"><font face="garamond"><b>Poisson processes exhibit a quality called the memoryless quality.  In a Poisson process, the expected waiting time is the same no matter how long you've already waited.  If you take the excess loss (mean of values above a number), it will be the same as the full distribution mean.  If you're waiting in line at the grocery store in a 5 minute line and you've waited 5 minutes, you should be helped in 5 more minutes.  If you've waited 10 minutes, your mean future wait time is 5 minutes.  If the process we've witnessed shows the memoryless property, the graph below should stay close to .57.</h3>
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(data = excess.loss,aes(x=seq(0,1,by=.05),y=excess.loss))+geom_point(aes(x=seq(.0,1,by=.05),y=excess.loss),fill='#2a66af',shape=22,size=2)+labs(x='left truncated at levels, by .05',y='excess loss function')+ theme(panel.background = element_rect(fill = '#aedde5'))+ylim(0,1.2)+scale_y_continuous(limits=c(0,1.4))
+```  
+  
+<h3><span style="color:#114147"><font face="garamond"><b>Our process exhibits a quality similar to the memoryless property.  However, the difference is a little greater than we expect.  This is likely because our real life process has a changing mean, seen in our first graph (at the top).</h3>  
+  
+<h3><span style="color:#114147"><font face="garamond"><b>We take a look at the wait times of our 4 processes, along with a histogram for each.  A more complicated and more accurate model could take the mean of each time segment for each category.  We can see 20 distinct possible means in the 4 graphs.  We will look at another way to model the mean at the end.  
+  
+<h3><span style="color:#5557cc;background-color:rgb(254, 254, 252)"><font face="arial"><b>Wait Time within Same Group</h3>
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+runner.list.short %>% 
+  filter(class=="45-49 Male") %>%
+    mutate(wait.time=total-lag(total)) %>% 
+       select(class,total,index,wait.time)->runner.list.45m
+runner.list.short %>% 
+  filter(class=="50-54 Male") %>% 
+    mutate(wait.time=total-lag(total)) %>% 
+       select(class,total,index,wait.time)->runner.list.50m
+runner.list.short %>% 
+  filter(class=="Collegiate Female") %>% 
+    mutate(wait.time=total-lag(total)) %>% 
+       select(class,total,index,wait.time)->runner.list.cf
+runner.list.short %>% 
+  filter(class=="40-44 Male") %>% 
+    mutate(wait.time=total-lag(total)) %>% 
+       select(class,total,index,wait.time)->runner.list.40m
+plot.a<-ggplot(data=runner.list.45m)+geom_histogram(aes(x=total,y=..count..,fill='#e58554'),binwidth=10)+labs(x="runner time, 45-49 male")+ theme(legend.position="none")
+plot.b<-ggplot(data=runner.list.45m)+geom_point(aes(y=wait.time,x=seq(1,79),color='#e58554'))+labs(x="45-49 male in order",y='')+ theme(legend.position="none")
+plot.c<-ggplot(data=runner.list.50m)+geom_histogram(aes(x=total,y=..count..),binwidth=10,fill='#9ecc59')+labs(x="runner time, 50-54 male")
+plot.d<-ggplot(data=runner.list.50m)+geom_point(aes(y=wait.time,x=seq(1,37)),color='#9ecc59')+labs(x="50-54 male in order",y='')
+plot.e<-ggplot(data=runner.list.40m)+geom_histogram(aes(x=total,y=..count..),binwidth=10,fill='#63c6cc')+labs(x="runner time, 40-44 male")
+plot.f<-ggplot(data=runner.list.40m)+geom_point(aes(y=wait.time,x=seq(1,97)),color='#63c6cc')+labs(x="40-44 male in order",y='')
+plot.g<-ggplot(data=runner.list.cf)+geom_histogram(aes(x=total,y=..count..),binwidth=10,fill='#e98eff')+labs(x="runner time, collegiate female")
+plot.h<-ggplot(data=runner.list.cf)+geom_point(aes(y=wait.time,x=seq(1,57)),color='#e98eff')+labs(x="collegiate female in order",y='')
+grid.arrange(plot.a, plot.b,plot.c, plot.d,plot.e, plot.f,plot.g, plot.h, nrow = 4)
+runner.list.short %>% 
+  arrange(total)->runner.list.short
+#-----------------------------------------------------
+arrival.first<-c(1:6)
+arrival.first<-data.frame(cbind(arrival.first,arrival.first,arrival.first))
+colnames(arrival.first)<-c("actual","expected","difference")
+rownames(arrival.first)<-c('50-54 Male before 45-49 Male','Collegiate Female before 45-49 Male','40-44 Male before 45-49 Male','Collegiate Female before 50-54 Male','40-44 Male before 50-54 Male','40-44 Male before Collegiate Female')
+arrival.first[,2]<-c(.31897,.41912,.55114,.60638,.72388,.62987)
+#-----------------------------------------------------
+runner.list.short %>% 
+  filter(class=="45-49 Male"|class=="50-54 Male")->runner.first.appear
+chooser.type<-c(1:40)
+percent.type<-c(1:100)
+for (k in 1:100)   {
+a.number<-(124+k*4)
+set.seed(a.number)
+time.chooser<-runif(40,150,190)
+for (i in 1:40) {
+  runner.first.appear %>% 
+    filter(total>time.chooser[i])->runner.first.appear2
+  if((runner.first.appear2[1,1])=='45-49 Male') {chooser.type[i]<-0}
+  else {chooser.type[i]<-1}
+                }
+chooser.type
+percent.type[k]<-mean(chooser.type)
+                    }
+arrival.first[1,1]<-mean(percent.type)
+#-------------------------------------------------------
+runner.list.short %>% 
+  filter(class=="45-49 Male"|class=="Collegiate Female")->runner.first.appear
+chooser.type<-c(1:40)
+percent.type<-c(1:100)
+for (k in 1:100)   {
+a.number<-(174+k*4)
+set.seed(a.number)
+time.chooser<-runif(40,150,190)
+for (i in 1:40) {
+  runner.first.appear %>% 
+    filter(total>time.chooser[i])->runner.first.appear2
+  if((runner.first.appear2[1,1])=='45-49 Male') {chooser.type[i]<-0}
+  else {chooser.type[i]<-1}
+                }
+chooser.type
+percent.type[k]<-mean(chooser.type)
+                    }
+arrival.first[2,1]<-mean(percent.type)
+#-------------------------------------------------------
+runner.list.short %>% 
+  filter(class=="45-49 Male"|class=="40-44 Male")->runner.first.appear
+chooser.type<-c(1:40)
+percent.type<-c(1:100)
+for (k in 1:100)   {
+a.number<-(174+k*4)
+set.seed(a.number)
+time.chooser<-runif(40,150,190)
+for (i in 1:40) {
+  runner.first.appear %>% 
+    filter(total>time.chooser[i])->runner.first.appear2
+  if (!is.na(runner.first.appear2[1,1]))  {
+  if((runner.first.appear2[1,1])=='45-49 Male') {chooser.type[i]<-0}
+ else {chooser.type[i]<-1}
+                }}
+percent.type[k]<-mean(chooser.type)
+                    }
+arrival.first[3,1]<-mean(percent.type)
+#-------------------------------------------------------
+runner.list.short %>% 
+  filter(class=="Collegiate Female"|class=="50-54 Male")->runner.first.appear
+chooser.type<-c(1:40)
+percent.type<-c(1:100)
+for (k in 1:100)   {
+a.number<-(174+k*4)
+set.seed(a.number)
+time.chooser<-runif(40,150,190)
+for (i in 1:40) {
+  runner.first.appear %>% 
+    filter(total>time.chooser[i])->runner.first.appear2
+  if (!is.na(runner.first.appear2[1,1]))  {
+  if((runner.first.appear2[1,1])=='50-54 Male') {chooser.type[i]<-1}
+ else {chooser.type[i]<-0}
+                }}
+percent.type[k]<-mean(chooser.type)
+                    }
+arrival.first[4,1]<-mean(percent.type)
+#-------------------------------------------------------
+runner.list.short %>% 
+  filter(class=="50-54 Male"|class=="40-44 Male")->runner.first.appear
+chooser.type<-c(1:40)
+percent.type<-c(1:100)
+for (k in 1:100)   {
+a.number<-(174+k*4)
+set.seed(a.number)
+time.chooser<-runif(40,150,190)
+for (i in 1:40) {
+  runner.first.appear %>% 
+    filter(total>time.chooser[i])->runner.first.appear2
+  if (!is.na(runner.first.appear2[1,1]))  {
+  if((runner.first.appear2[1,1])=='40-44 Male') {chooser.type[i]<-1}
+ else {chooser.type[i]<-0}
+                }}
+percent.type[k]<-mean(chooser.type)
+                    }
+arrival.first[5,1]<-mean(percent.type)
+#-------------------------------------------------------
+runner.list.short %>% 
+  filter(class=="Collegiate Female"|class=="40-44 Male")->runner.first.appear
+chooser.type<-c(1:40)
+percent.type<-c(1:100)
+for (k in 1:100)   {
+a.number<-(174+k*4)
+set.seed(a.number)
+time.chooser<-runif(40,150,190)
+for (i in 1:40) {
+  runner.first.appear %>% 
+    filter(total>time.chooser[i])->runner.first.appear2
+  if (!is.na(runner.first.appear2[1,1]))  {
+  if((runner.first.appear2[1,1])=='40-44 Male') {chooser.type[i]<-1}
+ else {chooser.type[i]<-0}
+                }}
+percent.type[k]<-mean(chooser.type)
+                    }
+arrival.first[6,1]<-mean(percent.type)
+```  
+  
+<h3><span style="color:#114147"><font face="garamond"><b>For Poisson processes, the likelihood of an arrival of type a before b is $\Huge\frac{\lambda_{a}}{\lambda_{a}+\lambda_{b}}$.  We simulate 100 sets of 40 random variables.  From each time, we figure out which type of runner will come next.  We imagine 4000 spectators show up at random times.  What is the likelihood the next runner they see will be of one type or another?  </h3>
+<h3><span style="color:#114147"><font face="garamond"><center>...</h3>  
+<h4><span style="color:#5557cc;background-color:rgb(254, 254, 252)"><font face="arial"><b><center><u>Who is likely to come first?</center></u>
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+#-------------------------------------------------------
+for (i in 1:6) {arrival.first[i,3]<- arrival.first[i,1]-arrival.first[i,2]}
+kable(arrival.first, "html") %>%
+  kable_styling("striped", full_width = F) %>%
+  column_spec(4, bold = T, color = "white", background = "#D7261E") %>% 
+   column_spec(2:3, bold = T, color = "#D7261E", background = "white")
+```  
+  
+<h3><span style="color:#114147"><font face="garamond"><b>Our estimates would have predicted fairly well which runner would arrive next.  It is not perfect, but roughly holds.  If we used a heterogeneous model instead of a homogeneous model, we might be able to improve our prediction.  
+  
+<h3><span style="color:#114147"><font face="garamond"><b>Finally, we investigate the shape of our model.  We were able to see the memoryless property.  We were able to see the ability to thin a larger Poisson into a set of smaller processes.  We made reasonable predictions about the likely type of runner to arrive next.  The shape of our runner arrival from the original graph is reproduced again, along with a representative gamma distribution.</h3>
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}  
+plot.a<-ggplot(data = runner.list,aes(x=runner.list$total))+geom_histogram(aes(x=runner.list$total,y=..count..),fill='#2a66af',binwidth=2)+labs(x="minutes to finish triathlon",title="Runner Finish Times")+ theme(panel.background = element_rect(fill = '#aedde5'))
+number.seq = seq(0,10,length=3000)
+pdf.set <- dgamma(number.seq,2,1)
+df<-data.frame(cbind(number.seq,pdf.set))
+plot.b<-ggplot(data=df,aes(x=number.seq))+
+  stat_function(fun=dgamma, args=list(shape=2, rate=1))+labs(x='',y='',title='gamma distribution')+ theme(panel.background = element_rect(fill = '#aedde5'))+theme(axis.text.x=element_blank(),axis.text.y=element_blank())
+grid.arrange(plot.a, plot.b, nrow = 1)
+```  
+  
+<h3><span style="color:#114147"><font face="garamond"><b>Our mean arrival number appears to potentially have a gamma distribution.  When we have a Poisson distribution where the $\lambda$ varies according to a gamma distribution, it is the equivalent to a negative binomial distribution.  The negative binomial distribution can also be used to calculate the probability a set number of events of one type will happen before a number of another type.  
+
+<h3><span style="color:#114147"><font face="garamond"><b><center>.</center></h3>  
+<h3><span style="color:#114147"><font face="garamond"><b><center>...</center></h3>  
+<h5><span style="color:#114147"><font face="garamond"><b>The following is preserved for future analysis.  After the first set of numbers proved especially useful, we concentrated on the runner timing analysis:
+```{r eval=FALSE, warning=FALSE, message=FALSE}
+#------------------------------------------------------------------------------------------------
+#Data was scraped from the procon.org website.  We looked at three controversial topics and created corpora to find the most likely words in each set of opinions.  We could count the occurrence and frequency in a word among opinions and look at the likelihood of one word over another.  We could look at the arrival of a word within words in the same way as we might look at arrival of a person.
+#------------------------------------------------------------------------------------------------
+procon.marijuana<-unlist(readLines('https://medicalmarijuana.procon.org/view.answers.php?questionID=001325'))
+procon.marijuana.pro<-procon.marijuana[c(1202:1607)]
+procon.marijuana.con<-procon.marijuana[c(1619:1972)]
+procon.marijuana.con<-str_remove_all (procon.marijuana.con,"<[^>]+>")
+procon.marijuana.pro<-str_remove_all (procon.marijuana.pro,"<[^>]+>")
+#------------------------------------------------------------------------------------------------
+procon.marijuana.pro<-(tolower(procon.marijuana.pro))
+marijuana_pro_corpus<-Corpus(VectorSource(procon.marijuana.pro))
+marijuana_pro_corpus <- tm_map(marijuana_pro_corpus, removeWords, stopwords("english"))
+marijuana_pro_tdm<-TermDocumentMatrix(marijuana_pro_corpus)
+marijuana_pro_top_terms<-findFreqTerms(marijuana_pro_tdm, lowfreq=15, highfreq=Inf)
+marijuana_pro_top_terms
+procon.marijuana.con<-(tolower(procon.marijuana.con))
+marijuana_con_corpus<-Corpus(VectorSource(procon.marijuana.con))
+marijuana_con_corpus <- tm_map(marijuana_con_corpus, removeWords, stopwords("english"))
+marijuana_con_tdm<-TermDocumentMatrix(marijuana_con_corpus)
+marijuana_con_top_terms<-findFreqTerms(marijuana_con_tdm, lowfreq=15, highfreq=Inf)
+marijuana_con_top_terms
+#------------------------------------------------------------------------------------------------
+procon.corporatetax<-unlist(readLines('https://corporatetax.procon.org'))
+procon.corporatetax.pro<-procon.corporatetax[c(1204:1368)]
+procon.corporatetax.con<-procon.corporatetax[c(1366:1435)]
+procon.corporatetax.con<-str_remove_all (procon.corporatetax.con,"<[^>]+>")
+procon.corporatetax.pro<-str_remove_all (procon.corporatetax.pro,"<[^>]+>")
+procon.corporatetax.pro<-(tolower(procon.corporatetax.pro))
+corporatetax_pro_corpus<-Corpus(VectorSource(procon.corporatetax.pro))
+corporatetax_pro_corpus <- tm_map(corporatetax_pro_corpus, removeWords, stopwords("english"))
+corporatetax_pro_tdm<-TermDocumentMatrix(corporatetax_pro_corpus)
+corporatetax_pro_top_terms<-findFreqTerms(corporatetax_pro_tdm, lowfreq=15, highfreq=Inf)
+corporatetax_pro_top_terms
+procon.corporatetax.con<-(tolower(procon.corporatetax.con))
+corporatetax_con_corpus<-Corpus(VectorSource(procon.corporatetax.con))
+corporatetax_con_corpus <- tm_map(corporatetax_con_corpus, removeWords, stopwords("english"))
+corporatetax_con_tdm<-TermDocumentMatrix(corporatetax_con_corpus)
+corporatetax_con_top_terms<-findFreqTerms(corporatetax_con_tdm, lowfreq=10, highfreq=Inf)
+corporatetax_con_top_terms
+#------------------------------------------------------------------------------------------------
+procon.gold<-unlist(readLines('https://gold-standard.procon.org/'))
+procon.gold.pro<-procon.gold[c(1204:1274)]
+procon.gold.con<-procon.gold[c(1272:1344)]
+procon.gold.con<-str_remove_all (procon.gold.con,"<[^>]+>")
+procon.gold.pro<-str_remove_all (procon.gold.pro,"<[^>]+>")
+procon.gold.pro<-(tolower(procon.gold.pro))
+gold_pro_corpus<-Corpus(VectorSource(procon.gold.pro))
+gold_pro_corpus <- tm_map(gold_pro_corpus, removeWords, stopwords("english"))
+gold_pro_tdm<-TermDocumentMatrix(gold_pro_corpus)
+gold_pro_top_terms<-findFreqTerms(gold_pro_tdm, lowfreq=10, highfreq=Inf)
+gold_pro_top_terms
+procon.gold.con<-(tolower(procon.gold.con))
+gold_con_corpus<-Corpus(VectorSource(procon.gold.con))
+gold_con_corpus <- tm_map(gold_con_corpus, removeWords, stopwords("english"))
+gold_con_tdm<-TermDocumentMatrix(gold_con_corpus)
+gold_con_top_terms<-findFreqTerms(gold_con_tdm, lowfreq=10, highfreq=Inf)
+gold_con_top_terms
+#------------------------------------------------------------------------------------------------
+procon.gold.pro<-unlist(procon.gold.pro)
+procon.gold.con<-unlist(procon.gold.con)
+joint.corpus<-c(procon.gold.pro,procon.gold.con, recursive = FALSE)
+joint.corpus<-Corpus(VectorSource(joint.corpus))
+joint.corpus <- tm_map(joint.corpus, removeWords, stopwords("english"))
+joint.corpus_tdm<-TermDocumentMatrix(joint.corpus)
+joint.corpus_terms<-findFreqTerms(joint.corpus_tdm, lowfreq=10, highfreq=Inf)
+joint.corpus_terms
+str_locate_all(procon.gold.pro,"debt")
+procon.gold.pro[28]
+procon.gold.pro[23]
+procon.gold.pro[24]
+procon.gold.pro[25]
+print("here")
+procon.gold.pro<- stri_join(procon.gold.pro, sep = " ", collapse = NULL)
+procon.gold.pro<-paste(procon.gold.pro[23],procon.gold.pro[28],procon.gold.pro[14])
+procon.gold.pro
+```
+
+
